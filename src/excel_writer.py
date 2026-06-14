@@ -212,51 +212,36 @@ def _sort_body_key(d: dict) -> str:
 
 
 def create_excel(rows: list[dict], output_path: str) -> None:
-    # ── 정렬: 날짜 우선, 같은 내용은 연속 배치 ───────────────────
-    # 방식: 1차 날짜순 정렬 → 2차 OrderedDict로 내용별 그룹화
-    # (g_min defaultdict 키 미스매치 문제 방지용 안정적 구현)
     import datetime as _dt_mod
-    from collections import OrderedDict
 
     def _row_date(r):
         dt = r.get('date')
         if hasattr(dt, 'date'): dt = dt.date()
         return dt or _dt_mod.date.min
 
-    def _content_key(r):
-        """병합/그룹 기준 키: (구분, PC, FC, 제목, 본문)"""
-        return (r.get('gubun',''), r.get('project_code',''),
-                r.get('func_code',''), r.get('subject',''),
-                _sort_body_key(r))
-
     def _stable_group_sort(rlist):
         """
-        1) 날짜 우선 정렬 (같은 날짜면 수행KPI 우선)
-        2) OrderedDict로 같은 내용 그룹화 (첫 등장 순서 유지)
-        3) 그룹 내 날짜 오름차순 정렬
-        → 결과: 가장 이른 날짜의 내용이 맨 앞, 같은 내용은 연속 배치
+        - 1행: 전체 최초 날짜 row (날짜 동일 시 수행KPI > 입찰 > 기타KPI > 기타 우선)
+        - 2행~: 구분 순서(수행KPI→입찰→기타KPI→기타), 구분 내 날짜 오름차순
         """
-        # 1차: 날짜 기준 정렬 (첫 등장 순서 결정)
-        by_date = sorted(rlist, key=lambda r: (
+        if not rlist:
+            return []
+
+        sorted_list = sorted(rlist, key=lambda r: (
+            _GUBUN_SORT.get(r.get('gubun', ''), 9),
             _row_date(r),
-            _GUBUN_SORT.get(r.get('gubun',''), 9),
-            r.get('project_code',''),
-            r.get('func_code',''),
-            r.get('subject',''),
+            r.get('project_code', ''),
+            r.get('func_code', ''),
+            r.get('subject', ''),
             _sort_body_key(r),
         ))
-        # 2차: 같은 내용 그룹화 (첫 등장 날짜 순서 유지)
-        groups = OrderedDict()
-        for r in by_date:
-            ck = _content_key(r)
-            if ck not in groups:
-                groups[ck] = []
-            groups[ck].append(r)
-        # 3차: 각 그룹 내 날짜 오름차순 + 순서대로 병합
-        result = []
-        for rows_in_group in groups.values():
-            result.extend(sorted(rows_in_group, key=_row_date))
-        return result
+
+        # 전체 최초 날짜 row를 맨 앞으로 (이미 0번이면 그대로)
+        min_date = min(_row_date(r) for r in rlist)
+        first_idx = next(i for i, r in enumerate(sorted_list) if _row_date(r) == min_date)
+        if first_idx == 0:
+            return sorted_list
+        return [sorted_list[first_idx]] + sorted_list[:first_idx] + sorted_list[first_idx + 1:]
 
     this_rows = [r for r in rows if r.get('source') != 'next_week_only']
     next_rows  = [r for r in rows if r.get('source') == 'next_week_only']
@@ -420,32 +405,13 @@ def _data(ws, rows: list[dict], fmts: dict, wb):
         'error_message': '목록에서 선택하세요',
     })
 
-    # ── 병합을 위해 행 재정렬 (같은 내용이 연속되도록) ─────────────
-    # 정렬 기준: 구분 → PC → FC → 제목 → 본문 → 날짜
-    # 이렇게 해야 같은 내용의 여러 날짜 행이 연속되어 I열 병합 가능
-    GUBUN_ORD = {"수행 (KPI)": 0, "입찰": 1, "기타 (KPI)": 2, "기타": 3}
+    # create_excel()의 _stable_group_sort()가 이미 날짜 우선 + 같은 내용 연속 배치로 정렬했으므로
+    # 여기서 재정렬하지 않음 (재정렬 시 날짜 순서가 깨짐)
 
     def _body_key(d):
         body = (d.get('body') or '').replace('\r\n','\n').replace('\r','\n')
         m = re.search(r'\*', body)
         return body[:m.start()].rstrip() if m else body
-
-    def _sort_key(d):
-        dt = d.get('date')
-        if hasattr(dt, 'date'): dt = dt.date()
-        return (
-            GUBUN_ORD.get(d.get('gubun',''), 9),
-            d.get('project_code',''),
-            d.get('func_code',''),
-            _clean_subject(d.get('subject','')),
-            _body_key(d),
-            dt or __import__('datetime').date.min,
-        )
-
-    # this_week / next_week 분리 → 각각 정렬 → 합치기
-    this_rows = sorted([r for r in rows if r.get('source') != 'next_week_only'], key=_sort_key)
-    next_rows = sorted([r for r in rows if r.get('source') == 'next_week_only'], key=_sort_key)
-    rows = this_rows + next_rows
 
     # ── I열 병합 그룹 사전 계산 ──────────────────────────────────
     # 같은 (gubun, pc, fc, subject, 별표제거_body) 가 연속될 때 I열 병합
