@@ -10,7 +10,7 @@ from tkinter import ttk, filedialog, messagebox
 from datetime import datetime, timedelta
 import threading, os
 
-from config          import load_config, save_config, reload_fc
+from config          import load_config, save_config, reload_fc, get_version_str
 from outlook_reader  import get_events
 from event_processor import (process_this_week, process_next_week,
                               build_rows, get_warnings)
@@ -19,9 +19,6 @@ import overrides as ov_mod
 from override_dialog  import OverrideDialog
 from plant_mh_dialog  import PlantMHDialog
 from monthly_dialog   import MonthlyDialog
-
-
-APP_VERSION = "Ver.1.1"   # main.py 와 동기화
 
 
 def _default_filename() -> str:
@@ -36,13 +33,14 @@ class WeeklyReportApp:
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title(f"Weekly Report Automator  {APP_VERSION}")
+        self._rows: list[dict] | None = None
+        self._cfg     = load_config()
+        self._version = get_version_str(self._cfg)
+
+        self.root.title(f"Weekly Report Automator  {self._version}")
         self.root.geometry(self.WIN_GEO)
         self.root.minsize(*self.WIN_MIN)
         self.root.configure(bg="#F0F2F5")
-
-        self._rows: list[dict] | None = None
-        self._cfg  = load_config()
 
         self._setup_vars()
         self._build_ui()
@@ -214,10 +212,10 @@ class WeeklyReportApp:
         bar = tk.Frame(self.root, bg="#1F4E79", height=52)
         bar.pack(fill="x")
         bar.pack_propagate(False)
-        tk.Label(bar, text=f"  📊  Weekly Report Automator  {APP_VERSION}",
+        tk.Label(bar, text=f"  📊  Weekly Report Automator  {self._version}",
                  font=("맑은 고딕", 14, "bold"),
                  fg="white", bg="#1F4E79").pack(side="left", padx=14, pady=10)
-        tk.Label(bar, text="DL이엔씨  플랜트본부 기계설계팀  ",
+        tk.Label(bar, text="DL이앤씨  플랜트본부 기계설계팀  ",
                  font=("맑은 고딕", 9), fg="#9DC3E6", bg="#1F4E79"
                  ).pack(side="right", padx=14)
 

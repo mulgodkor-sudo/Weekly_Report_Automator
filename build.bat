@@ -1,5 +1,5 @@
 @echo off
-set NAME=Weekly_Report_Automator_V1.1
+set NAME=Weekly_Report_Automator_V1.11
 
 REM Remove previous build output before rebuilding.
 REM main.py's _setup_src() loads dist\%NAME%\src\*.py (live patch) before
