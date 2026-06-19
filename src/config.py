@@ -37,6 +37,7 @@ _DEFAULT_CONFIG: dict = {
     "func_code_excel_path": "",
     "splash_image": "assets/splash.png",
     "icon_file":    "assets/Schedule_Ico.ico",
+    "version":      "1.11",
 }
 
 # ── config.json 읽기/쓰기 ────────────────────────────────────────────
@@ -63,6 +64,11 @@ def load_config() -> dict:
 def save_config(cfg: dict) -> None:
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+def get_version_str(cfg: dict | None = None) -> str:
+    """화면에 표시할 'Ver.X.X' 문자열. config.json의 version 키를 따른다."""
+    cfg = cfg or load_config()
+    return f"Ver.{cfg.get('version', _DEFAULT_CONFIG['version'])}"
 
 # ── 구분 선택지 ──────────────────────────────────────────────────────
 GUBUN_OPTIONS = _GUBUN_OPTIONS   # fc_rules.py 에서 관리

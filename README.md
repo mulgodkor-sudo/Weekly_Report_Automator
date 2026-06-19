@@ -1,6 +1,6 @@
-# 📊 Weekly Report Automator  `Ver.1.1`
+# 📊 Weekly Report Automator  `Ver.1.11`
 
-> DL이엔씨 플랜트본부 기계설계팀 — 아웃룩 캘린더 기반 주간보고서 자동 생성 도구
+> DL이앤씨 플랜트본부 기계설계팀 — 아웃룩 캘린더 기반 주간보고서 자동 생성 도구
 
 ---
 
@@ -70,8 +70,8 @@ conditional (GA08-01 등)          → 조건부 판단
 build.bat
 
 # 결과물
-dist/Weekly_Report_Automator_V1.1/
-├── Weekly_Report_Automator_V1.1.exe
+dist/Weekly_Report_Automator_V1.11/
+├── Weekly_Report_Automator_V1.11.exe
 ├── _internal/      ← DLL
 └── src/            ← .py 파일 (패치 가능)
 ```
@@ -128,4 +128,4 @@ C:\Users\{사용자명}\Documents\WeeklyReportAutomaker_overrides.json
 
 ---
 
-*DL이엔씨 플랜트본부 기계설계팀 — 이수신 차장*
+*DL이앤씨 플랜트본부 기계설계팀 — 이수신 차장*

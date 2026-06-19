@@ -25,8 +25,6 @@ _setup_src()
 
 import tkinter as tk
 
-APP_VERSION = "Ver.1.1"
-
 
 def resource_path(rel: str) -> str:
     """assets 등 번들 리소스 경로 반환"""
@@ -47,6 +45,8 @@ class SplashScreen:
     DEFAULT_H   = 280
 
     def __init__(self, root: tk.Tk, cfg: dict):
+        from config import get_version_str
+        self._version = get_version_str(cfg)
         self._win = tk.Toplevel(root)
         self._win.overrideredirect(True)
         self._win.lift()
@@ -60,7 +60,7 @@ class SplashScreen:
             cv = tk.Canvas(self._win, width=w, height=h, bd=0, highlightthickness=0)
             cv.pack()
             cv.create_image(0, 0, anchor="nw", image=self._img)
-            cv.create_text(w - 10, h - 10, anchor="se", text=APP_VERSION,
+            cv.create_text(w - 10, h - 10, anchor="se", text=self._version,
                            font=("맑은 고딕", 10, "bold"), fill="#9DC3E6")
         except Exception:
             self._img = None
@@ -73,9 +73,9 @@ class SplashScreen:
             tk.Label(frame, text="Weekly Report Automator",
                      font=("맑은 고딕", 18, "bold"),
                      bg="#1F4E79", fg="white").pack()
-            tk.Label(frame, text="DL이엔씨  플랜트본부 기계설계팀",
+            tk.Label(frame, text="DL이앤씨  플랜트본부 기계설계팀",
                      font=("맑은 고딕", 10), bg="#1F4E79", fg="#9DC3E6").pack(pady=4)
-            tk.Label(frame, text=APP_VERSION, font=("맑은 고딕", 9),
+            tk.Label(frame, text=self._version, font=("맑은 고딕", 9),
                      bg="#1F4E79", fg="#5B9BD5").pack(side="bottom", pady=10)
 
         sw, sh = self._win.winfo_screenwidth(), self._win.winfo_screenheight()
