@@ -383,6 +383,57 @@ if errorlevel 1 (
 
 del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
 
+set "OLD_TAG=V%BASELINE_VERSION%"
+set "NEW_TAG=V%PATCH_VERSION%"
+
+echo.
+echo Renaming exe file to v%PATCH_VERSION%...
+set "OLD_EXE="
+for %%F in ("%~dp0*.exe") do set "OLD_EXE=%%~nxF"
+if not defined OLD_EXE (
+    echo WARNING: no .exe found next to this file. Skipping exe rename.
+) else (
+    set "CHECK_NEW=!OLD_EXE:%NEW_TAG%=!"
+    if not "!CHECK_NEW!"=="!OLD_EXE!" (
+        echo Exe is already named for v%PATCH_VERSION%: !OLD_EXE!
+    ) else (
+        set "NEW_EXE=!OLD_EXE:%OLD_TAG%=%NEW_TAG%!"
+        if "!NEW_EXE!"=="!OLD_EXE!" (
+            echo WARNING: exe filename has no "%OLD_TAG%" pattern - rename it manually: !OLD_EXE!
+        ) else (
+            ren "%~dp0!OLD_EXE!" "!NEW_EXE!"
+            if errorlevel 1 (
+                echo WARNING: could not rename exe. Close the program if running, then rename manually to: !NEW_EXE!
+            ) else (
+                echo Renamed exe: !OLD_EXE! -^> !NEW_EXE!
+            )
+        )
+    )
+)
+
+echo.
+echo Renaming program folder to v%PATCH_VERSION%...
+for %%D in ("%~dp0.") do set "OLD_DIRNAME=%%~nxD"
+for %%D in ("%~dp0..") do set "PARENT_DIR=%%~fD"
+set "CHECK_DNEW=!OLD_DIRNAME:%NEW_TAG%=!"
+if not "!CHECK_DNEW!"=="!OLD_DIRNAME!" (
+    echo Folder is already named for v%PATCH_VERSION%: !OLD_DIRNAME!
+) else (
+    set "NEW_DIRNAME=!OLD_DIRNAME:%OLD_TAG%=%NEW_TAG%!"
+    if "!NEW_DIRNAME!"=="!OLD_DIRNAME!" (
+        echo WARNING: folder name has no "%OLD_TAG%" pattern - rename it manually: !OLD_DIRNAME!
+    ) else (
+        cd /d "%PARENT_DIR%"
+        ren "!OLD_DIRNAME!" "!NEW_DIRNAME!"
+        if exist "%PARENT_DIR%\!NEW_DIRNAME!" (
+            echo Renamed folder: !OLD_DIRNAME! -^> !NEW_DIRNAME!
+        ) else (
+            echo WARNING: could not rename folder. Close this window, the program, and any
+            echo Explorer windows open inside it, then rename the folder manually to: !NEW_DIRNAME!
+        )
+    )
+)
+
 echo.
 echo ============================================================
 echo  PATCH SUCCESS - now at v%PATCH_VERSION%

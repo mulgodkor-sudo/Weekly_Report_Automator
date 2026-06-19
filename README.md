@@ -89,6 +89,7 @@ dist/Weekly_Report_Automator_V1.11/
    apply_patch_vX.X.bat 복사
 2. apply_patch_vX.X.bat 더블클릭
    - src/ 파일을 즉시 덮어쓴다 (백업 없음, 임시파일은 종료 시 자동 삭제)
+   - .exe 파일명과 그 exe가 들어있는 폴더명도 새 버전 표기로 자동 변경
 3. 프로그램 재시작
 ```
 
