@@ -88,6 +88,7 @@ def _fmts(wb: xlsxwriter.Workbook) -> dict:
         'data_date'   : cell(align='left',   num_format='yyyy-mm-dd'),
         'data_h'      : cell(align='left',   text_wrap=True),   # H 제목
         'data_i'      : cell(align='left',   text_wrap=True),   # I 상세(plain)
+        'data_i_red'  : cell(align='left',   text_wrap=True, color=RED),  # I 상세(전체 붉은색)
         'data_j'      : cell(align='center', num_format='0.0'), # J 금주
         'data_k'      : cell(align='center', num_format='0%'),  # K 금주%
         'data_m'      : cell(align='center', num_format='0.0',  # M 차주
@@ -123,7 +124,7 @@ def _write_body(ws, row: int, col: int, body: str, fmts: dict,
         if do_merge:
             ws.merge_range(row, col, merge_end_row, col, '', fmts['data_i'])
         else:
-            ws.write_blank(row, col, fmts['data_i'])
+            ws.write_blank(row, col, None, fmts['data_i'])
         return
 
     # ── \r 제거: 아웃룩 본문의 \r\n → \n 변환 (_x000D_ 방지) ──
@@ -164,20 +165,23 @@ def _write_body(ws, row: int, col: int, body: str, fmts: dict,
                     parts.append((fmts['run_blk'], t))
 
     if not parts:
-        ws.write_blank(row, col, fmts['data_i'])
+        ws.write_blank(row, col, None, fmts['data_i'])
         return
 
     # 파트 1개: 단색 write
     if len(parts) == 1:
         fmt, txt = parts[0]
         if fmt is fmts['run_red']:
-            red_cell = ws.workbook.add_format({
-                'font_name':'Calibri','font_size':11,'color':'#FF0000',
-                'border':1,'valign':'vcenter','align':'left','text_wrap':True,
-            })
-            ws.write(row, col, txt, red_cell)
+            red_cell = fmts['data_i_red']
+            if do_merge:
+                ws.merge_range(row, col, merge_end_row, col, txt, red_cell)
+            else:
+                ws.write(row, col, txt, red_cell)
         else:
-            ws.write(row, col, txt, fmts['data_i'])
+            if do_merge:
+                ws.merge_range(row, col, merge_end_row, col, txt, fmts['data_i'])
+            else:
+                ws.write(row, col, txt, fmts['data_i'])
         return
 
     # 파트 2개+: write_rich_string
@@ -188,7 +192,7 @@ def _write_body(ws, row: int, col: int, body: str, fmts: dict,
 
     try:
         if do_merge:
-            ws.merge_range(row, col, merge_end_row, col, '')
+            ws.merge_range(row, col, merge_end_row, col, '', fmts['data_i'])
         ws.write_rich_string(row, col, *tokens)
     except Exception:
         if do_merge:
@@ -219,29 +223,57 @@ def create_excel(rows: list[dict], output_path: str) -> None:
         if hasattr(dt, 'date'): dt = dt.date()
         return dt or _dt_mod.date.min
 
+    def _content_key(r):
+        """병합 기준 키: (구분, PC, FC, 제목, 본문) - 같은 내용은 연속 배치"""
+        return (r.get('gubun', ''), r.get('project_code', ''),
+                r.get('func_code', ''), r.get('subject', ''),
+                _sort_body_key(r))
+
     def _stable_group_sort(rlist):
         """
+        - 같은 내용(구분/PC/FC/제목/본문)은 그룹으로 묶어 연속 배치 (I열 병합 가능하도록)
+        - 그룹 순서: 구분 순서(수행KPI→입찰→기타KPI→기타) → 그룹 내 최초 날짜 → PC → FC → 제목 → 본문
+        - 그룹 내부: 날짜 오름차순
         - 1행: 전체 최초 날짜 row (날짜 동일 시 수행KPI > 입찰 > 기타KPI > 기타 우선)
-        - 2행~: 구분 순서(수행KPI→입찰→기타KPI→기타), 구분 내 날짜 오름차순
         """
         if not rlist:
             return []
 
-        sorted_list = sorted(rlist, key=lambda r: (
-            _GUBUN_SORT.get(r.get('gubun', ''), 9),
-            _row_date(r),
-            r.get('project_code', ''),
-            r.get('func_code', ''),
-            r.get('subject', ''),
-            _sort_body_key(r),
-        ))
+        groups: dict[tuple, list] = {}
+        for r in rlist:
+            groups.setdefault(_content_key(r), []).append(r)
 
-        # 전체 최초 날짜 row를 맨 앞으로 (이미 0번이면 그대로)
+        group_entries = []
+        for ck, grp_rows in groups.items():
+            grp_sorted = sorted(grp_rows, key=_row_date)
+            min_d = min(_row_date(r) for r in grp_rows)
+            gubun, pc, fc, subj, body_key = ck
+            sort_key = (_GUBUN_SORT.get(gubun, 9), min_d, pc, fc, subj, body_key)
+            group_entries.append((sort_key, grp_sorted))
+
+        group_entries.sort(key=lambda e: e[0])
+
+        # 전체 최초 날짜를 포함한 그룹을 맨 앞으로 (그룹 통째로 이동 - 병합 유지)
+        # 그룹 내부는 이미 날짜 오름차순이라 그룹의 첫 row가 곧 최초 날짜 row가 됨.
+        # 개별 row만 빼내면 같은 그룹의 나머지 row와 떨어져 I열 병합이 끊어지므로
+        # 반드시 그룹 단위로 이동한다.
         min_date = min(_row_date(r) for r in rlist)
-        first_idx = next(i for i, r in enumerate(sorted_list) if _row_date(r) == min_date)
-        if first_idx == 0:
-            return sorted_list
-        return [sorted_list[first_idx]] + sorted_list[:first_idx] + sorted_list[first_idx + 1:]
+        first_group_idx = next(
+            i for i, (_, grp_sorted) in enumerate(group_entries)
+            if _row_date(grp_sorted[0]) == min_date
+        )
+        if first_group_idx != 0:
+            group_entries = (
+                [group_entries[first_group_idx]]
+                + group_entries[:first_group_idx]
+                + group_entries[first_group_idx + 1:]
+            )
+
+        sorted_list = []
+        for _, grp_sorted in group_entries:
+            sorted_list.extend(grp_sorted)
+
+        return sorted_list
 
     this_rows = [r for r in rows if r.get('source') != 'next_week_only']
     next_rows  = [r for r in rows if r.get('source') == 'next_week_only']
