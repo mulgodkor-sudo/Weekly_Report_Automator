@@ -20,17 +20,6 @@ if not exist "%TARGET_DIR%" (
     exit /b 1
 )
 
-echo Backing up current src folder...
-set "BACKUP_DIR=%~dp0src_backup_v%BASELINE_VERSION%_%RANDOM%"
-xcopy /Y /E /I /Q "%TARGET_DIR%" "%BACKUP_DIR%" >nul
-if errorlevel 1 (
-    echo ERROR: backup failed. Aborting - nothing was changed.
-    pause
-    exit /b 1
-)
-echo Backup saved to: %BACKUP_DIR%
-echo.
-
 echo Writing patch data...
 > "%TMP_B64%" (
 echo UEsDBBQAAgAIAJ0u01wztYcKRR8AAJCDAAAGAAAAYXBwLnB53D1rc9RGtt/9K/oqlYpEzOCxjYGp
@@ -378,7 +367,7 @@ echo Decoding patch data...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$b64 = (Get-Content -Raw '%TMP_B64%') -replace '\s',''; [IO.File]::WriteAllBytes('%TMP_ZIP%', [Convert]::FromBase64String($b64))"
 if errorlevel 1 (
     echo ERROR: decode failed. Your files were not changed.
-    del "%TMP_B64%" >nul 2>&1
+    del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
     pause
     exit /b 1
 )
@@ -386,8 +375,7 @@ if errorlevel 1 (
 echo Applying patch to "%TARGET_DIR%"...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%TMP_ZIP%' -DestinationPath '%TARGET_DIR%' -Force"
 if errorlevel 1 (
-    echo ERROR: patch apply failed. Restoring backup...
-    xcopy /Y /E /I /Q "%BACKUP_DIR%" "%TARGET_DIR%" >nul
+    echo ERROR: patch apply failed.
     del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
     pause
     exit /b 1
@@ -398,7 +386,6 @@ del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
 echo.
 echo ============================================================
 echo  PATCH SUCCESS - now at v%PATCH_VERSION%
-echo  Backup of previous files: %BACKUP_DIR%
 echo  Please restart the program for the changes to take effect.
 echo ============================================================
 pause

@@ -88,8 +88,7 @@ dist/Weekly_Report_Automator_V1.11/
 1. Weekly_Report_Automator_VX.X.exe 가 있는 폴더(= src/ 폴더가 있는 폴더)에
    apply_patch_vX.X.bat 복사
 2. apply_patch_vX.X.bat 더블클릭
-   - 패치 전 src/ 폴더를 src_backup_v* 폴더로 자동 백업
-   - 실패 시 자동으로 백업본 복원
+   - src/ 파일을 즉시 덮어쓴다 (백업 없음, 임시파일은 종료 시 자동 삭제)
 3. 프로그램 재시작
 ```
 
