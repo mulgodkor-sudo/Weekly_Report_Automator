@@ -272,7 +272,14 @@ Weekly_Report_Automator/
 - 형식: `"ℹ️  Function Code: 총 {N}개  (General {N}개 / Project {N}개)"` (`src/event_processor.py:292–295`)
 - FC 2개 이하일 때 추가 경고: `"⚠️  Function Code {N}개 (3개 이상 되도록 점검 요망)"` (`src/event_processor.py:296–299`)
 
-### 7-5. 아웃룩 접근 관련 (app.py에서 추가)
+### 7-5. 날짜별 ST / OT 점검 (이번주 실적)
+
+- 위 7-1의 40H/8H 합계 비교는 **ST 합계** 기준 (OT가 있어도 "초과" 경고가 뜨지 않음)
+- 평일 ST 8H 미만: `"⚠️  {mm월 dd일}({요일}) - 정규시간(ST) {H}H  ←  8H 미만. 시간 재확인 필요"` (주별 모드만)
+- OT가 있는 날: `"ℹ️  {mm월 dd일}({요일}) - OT {H}H  (ST {H}H)"`
+- 요약 줄: `"✅  이번주 [실적] : {N}건  (합계 {H}H = ST {H}H + OT {H}H)"`
+
+### 7-6. 아웃룩 접근 관련 (app.py에서 추가)
 
 - FC 파일 미로드: `"⚠️  Function Code 파일이 로드되지 않았습니다.\n      하단 [FC 엑셀 파일] 경로를 확인하고 🔄FC 재로드를 눌러주세요."` (`src/app.py:566–568`)
 - 0건 (일정 없음): `"⚠️  아웃룩에서 해당 기간({시작}~{종료}) 일정을 찾지 못했습니다.\n..."` (`src/app.py:572–577`)
@@ -415,7 +422,8 @@ error_message: '목록에서 선택하세요'
 
 ### 10-10. Plant MH 시트
 
-- 헤더: `구분`, `Project Code`, `Func. Code`, `Description` + 날짜별 열(`월/일(요일)`) + `합계` (`src/excel_writer.py:594–598`)
+- 헤더 2행: `구분`, `Project Code`, `Func. Code`, `Description` + 날짜별(`월/일(요일)` 병합) `ST`/`OT` 두 칸 + `ST TOTAL` / `OT TOTAL`
+- ST/OT 계산 규칙은 12-3 참조
 - 날짜 표시: `f"{월}/{일}\n({요일})"`, 요일 = `['Mon','Tue','Wed','Thu','Fri','Sat','Sun']` (`src/excel_writer.py:597`)
 - 이번주 실적 데이터만 포함 (`src/excel_writer.py:559`)
 - 합계 행 배경: `#FFE699` (`src/excel_writer.py:580`)
@@ -481,31 +489,36 @@ error_message: '목록에서 선택하세요'
 
 ## 12. Plant M/H 입력 확인 (plant_mh_dialog.py)
 
-- 창 제목: `"Plant M/H 입력 확인"` (`src/plant_mh_dialog.py:20`)
-- 창 크기: `920x420`, 최소 `700x300` (`src/plant_mh_dialog.py:21–22`)
-- 타이틀 바 텍스트: `"  📊  Plant M/H 입력 확인  (이번주 [실적] 기준)"` (`src/plant_mh_dialog.py:41`)
-- 데이터 없을 때 메시지: `"이번주 [실적] 데이터가 없습니다.\n먼저 주별 불러오기를 실행하세요."` (`src/plant_mh_dialog.py:48–49`)
+- 창 제목: `"Plant M/H 입력 확인"`, 크기 `1200x480`, 최소 `700x320`
+- 타이틀 바 텍스트: `"  📊  Plant M/H 입력 확인  ([실적] 기준)"`
+- 메인 화면의 `"📊  Plant M/H 입력 확인"` 버튼은 **항상 활성** (주별 불러오기 전에도 열 수 있음)
 
-### 컬럼 구성
+### 12-1. 조회 기간
 
-| 컬럼 ID | 헤더 | 너비 |
-|---------|------|------|
-| no | No. | 40 |
-| gubun | 구분 | 85 |
-| pc | Project Code | 80 |
-| fc | Func. Code | 80 |
-| desc | Description | 180 |
-| d0..dN | `요일(월/일)` 형식 | 60 |
-| total | 합계 | 55 |
+- 섹션 제목: `"  📅  조회 기간"` — `"시작일 :"`, `" ~ 종료일 :"`, 버튼 `"🔍  불러오기"`
+- 기본값: 메인 화면 주별 추출의 **이번주 시작일~종료일**
+- 시작일을 바꿔도 종료일은 자동 변경되지 않음 (몇 주 / 한 달치 몰아서 확인 가능)
+- 메인 화면에서 같은 기간으로 이미 불러온 결과가 있으면 그대로 표시, 없으면 창이 열리면서 바로 아웃룩 조회
 
-(`src/plant_mh_dialog.py:79–82`, `src/plant_mh_dialog.py:77`)
+### 12-2. 표 구성
 
-- 날짜 헤더 형식: `f"{DAY_KO[요일]}({월}/{일})"`, DAY_KO = `["월","화","수","목","금","토","일"]` (`src/plant_mh_dialog.py:14, 77`)
-- 합계 행 레이블: `"합  계"` — 배경 `#FFE699` (`src/plant_mh_dialog.py:124–129`)
-- 하단 안내: `"※ ST(정규시간) 기준  |  OT는 별도 확인하세요"` (`src/plant_mh_dialog.py:144–146`)
-- 닫기 버튼: `"✅  닫기"` (`src/plant_mh_dialog.py:147`)
+| 컬럼 | 내용 |
+|------|------|
+| No. / 구분 / Project Code / Func. Code / Description | (구분, PC, FC, 업무명) 단위 집계 |
+| `{요일}({월}/{일}) ST`, `OT` | 날짜마다 ST·OT 두 칸 (데이터가 있는 날짜만) |
+| ST TOTAL / OT TOTAL | 행별 합계 |
 
----
+- 마지막 행 `"합  계"` (배경 `#FFE699`)
+- 하단 안내: `"※ ST: 평일 08:30~17:30 (하루 최대 8H)  |  OT: 그 외 시간 및 토·일"`
+
+### 12-3. ST / OT 계산 규칙 (`src/outlook_reader.py` `assign_st_ot()`)
+
+1. 평일 일정 중 **08:30~17:30 구간과 겹치는 시간 → ST**, 구간 밖 시간 → OT (30분 단위 반올림)
+2. **토·일 일정은 전부 OT**
+3. 종일 일정(AllDayEvent, 예: 휴가)은 평일이면 8H 전부 ST
+4. **하루 ST는 최대 8H**: 같은 날 일정을 시작시각 순으로 누적해 8H를 넘는 부분은 OT로 넘김
+   (예: 점심시간 회의로 구간 안 합계가 9H → 그날 마지막 일정에서 1H가 OT)
+5. 점심시간은 별도로 설정하지 않음 (점심시간에는 일정을 넣지 않는 것을 전제)
 
 ## 13. 월간업무정리 (monthly_dialog.py / monthly_processor.py)
 

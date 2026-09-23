@@ -143,6 +143,49 @@ def event_hours(item) -> float:
 
 
 # ══════════════════════════════════════════════════════════
+# 정규시간(ST) / 초과근무(OT) 구분
+# ══════════════════════════════════════════════════════════
+
+ST_START_HM = (8, 30)   # 정규시간 시작 08:30
+ST_END_HM   = (17, 30)  # 정규시간 종료 17:30
+ST_DAILY_H  = 8.0       # 하루 정규시간 상한
+
+
+def _st_window_hours(e: dict) -> float:
+    """일정이 평일 08:30~17:30 구간과 겹치는 시간 (30분 단위 반올림). 주말은 0."""
+    date = e["date"]
+    if date.weekday() >= 5:
+        return 0.0
+    if e.get("is_all_day"):
+        return e["hours"]
+    start, end = e.get("start"), e.get("end")
+    if not start or not end:
+        return e["hours"]
+    win_s = date.replace(hour=ST_START_HM[0], minute=ST_START_HM[1])
+    win_e = date.replace(hour=ST_END_HM[0],   minute=ST_END_HM[1])
+    overlap = (min(end, win_e) - max(start, win_s)).total_seconds() / 3600
+    return min(_round_half(max(overlap, 0.0)), e["hours"])
+
+
+def assign_st_ot(events: list[dict]) -> None:
+    """
+    각 이벤트에 st_hours / ot_hours 기록 (in-place).
+      - 평일 08:30~17:30 안의 시간 → ST, 밖의 시간 → OT
+      - 토·일은 전부 OT
+      - 하루 ST는 최대 8H: 같은 날·같은 태그의 일정을 시작시각 순으로 누적해
+        8H를 넘는 부분은 OT로 넘김 (예: 점심시간 회의)
+    """
+    used: dict[tuple, float] = {}   # (date, tag) → 누적 ST
+    for e in sorted(events, key=lambda x: x.get("start") or x["date"]):
+        key = (e["date"], e.get("tag"))
+        remain = max(ST_DAILY_H - used.get(key, 0.0), 0.0)
+        st = min(_st_window_hours(e), remain)
+        used[key] = used.get(key, 0.0) + st
+        e["st_hours"] = st
+        e["ot_hours"] = round(e["hours"] - st, 1)
+
+
+# ══════════════════════════════════════════════════════════
 # Outlook 연결 헬퍼
 # ══════════════════════════════════════════════════════════
 
@@ -230,6 +273,8 @@ def get_events(start: datetime, end: datetime) -> list[dict]:
                     project_code = parsed["project_code"],
                     func_code    = parsed["func_code"],
                     date         = event_date,
+                    start        = dt_start,
+                    end          = _win_to_dt(item.End),
                     body         = body_text,
                     hours        = event_hours(item),
                     is_all_day   = bool(item.AllDayEvent),
@@ -246,6 +291,7 @@ def get_events(start: datetime, end: datetime) -> list[dict]:
                 "아웃룩이 실행 중인지, 계정이 로그인되어 있는지 확인하세요."
             )
 
+        assign_st_ot(results)
         return results
 
     except RuntimeError:
