@@ -21,6 +21,7 @@ Weekly_Report_Automator/
     ├── outlook_reader.py    ← Outlook COM 연동
     ├── overrides.py         ← 되풀이 모임 override 관리
     ├── override_dialog.py   ← 되풀이 모임 설정 UI
+    ├── plant_mh.py          ← Plant M/H 집계 + Excel 시트 (공통)
     ├── plant_mh_dialog.py   ← Plant M/H 입력 확인 UI
     ├── monthly_processor.py ← 월간업무정리 처리 로직
     ├── monthly_dialog.py    ← 월간업무정리 UI + Excel 저장

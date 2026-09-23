@@ -34,7 +34,6 @@ class WeeklyReportApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self._rows: list[dict] | None = None
-        self._rows_range: tuple[str, str] | None = None   # _rows 의 이번주 조회 기간
         self._cfg     = load_config()
         self._version = get_version_str(self._cfg)
 
@@ -462,9 +461,7 @@ class WeeklyReportApp:
     def _open_plant_mh(self):
         # 기본 조회 기간 = Weekly Report 조회 기간(이번주). 창 안에서 조정 가능.
         start, end = self.v_ts.get().strip(), self.v_te.get().strip()
-        # 이미 같은 기간으로 불러온 행이 있으면 재사용, 아니면 창에서 바로 조회
-        rows = self._rows if self._rows_range == (start, end) else None
-        PlantMHDialog(self.root, rows, start, end)
+        PlantMHDialog(self.root, start, end)   # 창이 열리면서 아웃룩에서 바로 조회
 
     def _browse_save(self):
         p = filedialog.askdirectory(title="저장 경로 선택")
@@ -533,8 +530,6 @@ class WeeklyReportApp:
         self.btn_gen.config(state="disabled")
         self.progress.start()
         self._set_status(f"아웃룩 {label} 일정 불러오는 중...")
-        rows_range = ((ts.strftime("%Y-%m-%d"), te.strftime("%Y-%m-%d"))
-                      if ts and te else None)
         self._set_warn("⏳  아웃룩 일정을 불러오는 중입니다...\n\n잠시 기다려 주세요.")
 
         # 일별=8H, 주별=40H
@@ -581,8 +576,7 @@ class WeeklyReportApp:
                 built  = ov_mod.apply(built, ovrs)
                 ov_cnt = ov_mod.count_applied(built, ovrs)
                 self.root.after(0, lambda: self._on_load_ok(
-                    this_proc, next_proc, warns, built, ov_cnt, mode, single_date, ts,
-                    rows_range))
+                    this_proc, next_proc, warns, built, ov_cnt, mode, single_date, ts))
             except Exception as err:
                 msg = str(err)
                 self.root.after(0, lambda: self._on_err(msg, f"{label} 불러오기 오류"))
@@ -598,10 +592,9 @@ class WeeklyReportApp:
         threading.Thread(target=task, daemon=True).start()
     def _on_load_ok(self, this_proc, next_proc, warns, built,
                     ov_cnt: int = 0, mode: str = "week",
-                    single_date=None, week_ts=None, rows_range=None):
+                    single_date=None, week_ts=None):
         self.progress.stop()
         self._rows = built
-        self._rows_range = rows_range
 
         # 사전 검토 결과 자동 펼침
         if hasattr(self, "_warn_toggle"):

@@ -49,6 +49,7 @@ Weekly_Report_Automator/
     ├── outlook_reader.py      ← Outlook COM 연동
     ├── overrides.py           ← 되풀이 모임 override 저장/적용
     ├── override_dialog.py     ← 되풀이 모임 설정 UI
+    ├── plant_mh.py            ← Plant M/H 집계 + Excel 시트 (화면/Excel 공통 배치)
     ├── plant_mh_dialog.py     ← Plant M/H 입력 확인 UI
     ├── monthly_processor.py   ← 월간업무정리 처리 로직
     ├── monthly_dialog.py      ← 월간업무정리 UI + Excel 저장
@@ -422,7 +423,8 @@ error_message: '목록에서 선택하세요'
 
 ### 10-10. Plant MH 시트
 
-- 헤더 2행: `구분`, `Project Code`, `Func. Code`, `Description` + 날짜별(`월/일(요일)` 병합) `ST`/`OT` 두 칸 + `ST TOTAL` / `OT TOTAL`
+- M/H 확인 창의 Excel 저장과 같은 배치 (`src/plant_mh.py` `write_sheet()` 공통), 12-2 참조
+- 날짜 범위: 실적 주의 월요일 ~ 일요일
 - ST/OT 계산 규칙은 12-3 참조
 - 날짜 표시: `f"{월}/{일}\n({요일})"`, 요일 = `['Mon','Tue','Wed','Thu','Fri','Sat','Sun']` (`src/excel_writer.py:597`)
 - 이번주 실적 데이터만 포함 (`src/excel_writer.py:559`)
@@ -487,29 +489,33 @@ error_message: '목록에서 선택하세요'
 
 ---
 
-## 12. Plant M/H 입력 확인 (plant_mh_dialog.py)
+## 12. Plant M/H 입력 확인 (plant_mh_dialog.py / plant_mh.py)
 
-- 창 제목: `"Plant M/H 입력 확인"`, 크기 `1200x480`, 최소 `700x320`
+- 창 제목: `"Plant M/H 입력 확인"`, 크기 `1280x520`, 최소 `760x340`
 - 타이틀 바 텍스트: `"  📊  Plant M/H 입력 확인  ([실적] 기준)"`
-- 메인 화면의 `"📊  Plant M/H 입력 확인"` 버튼은 **항상 활성** (주별 불러오기 전에도 열 수 있음)
+- 메인 화면의 `"📊  Plant M/H 입력 확인"` 버튼은 **항상 활성**, 창이 열리면서 아웃룩에서 바로 조회
 
 ### 12-1. 조회 기간
 
 - 섹션 제목: `"  📅  조회 기간"` — `"시작일 :"`, `" ~ 종료일 :"`, 버튼 `"🔍  불러오기"`
 - 기본값: 메인 화면 주별 추출의 **이번주 시작일~종료일**
 - 시작일을 바꿔도 종료일은 자동 변경되지 않음 (몇 주 / 한 달치 몰아서 확인 가능)
-- 메인 화면에서 같은 기간으로 이미 불러온 결과가 있으면 그대로 표시, 없으면 창이 열리면서 바로 아웃룩 조회
+- 표시·조회 범위는 **종료일이 속한 주의 일요일까지** 자동 확장 (주말 OT 포함)
 
-### 12-2. 표 구성
+### 12-2. 표 구성 (회사 M/H 입력 시스템과 같은 배치)
 
-| 컬럼 | 내용 |
-|------|------|
-| No. / 구분 / Project Code / Func. Code / Description | (구분, PC, FC, 업무명) 단위 집계 |
-| `{요일}({월}/{일}) ST`, `OT` | 날짜마다 ST·OT 두 칸 (데이터가 있는 날짜만) |
-| ST TOTAL / OT TOTAL | 행별 합계 |
-
-- 마지막 행 `"합  계"` (배경 `#FFE699`)
-- 하단 안내: `"※ ST: 평일 08:30~17:30 (하루 최대 8H)  |  OT: 그 외 시간 및 토·일"`
+- 왼쪽 고정 열: `No.` / `구분` / `Project Code` / `Func. Code` / `Description` (가로 스크롤 시에도 고정)
+  - 구분: Project Code `000000` → `General`, 그 외 → `Project`
+  - 행 단위: (Project Code, Func. Code), 정렬: General 먼저 → PC → FC
+- 날짜 영역 머리글 4단: `2026년 09월` / 요일 / 일 / `ST`·`OT`
+  - **시작일~종료일 주 일요일까지 모든 날짜** 표시 (일정이 없는 날·주말은 빈칸)
+  - 토·일 머리글 빨간 글씨, **OT 칸 연두색**
+  - 일정이 있는 날은 0도 표시 (예: ST `3` / OT `0`), 소수는 `3.5`, 정수는 `3`
+- 오른쪽 끝: `ST TOTAL` / `OT TOTAL`, 마지막 행 `합  계` (배경 `#FFE699`)
+- 하단: 기간·ST/OT 합계, 안내 `"※ ST: 평일 08:30~17:30 (하루 최대 8H)  |  OT: 그 외 시간 및 토·일"`
+- 버튼: `"📄  Excel 저장"` (조회 결과가 있을 때 활성), `"✅  닫기"`
+  - 기본 파일명 `PlantMH_{시작일YYYYMMDD}-{종료일YYYYMMDD}.xlsx`, 시트명 `Plant MH`
+  - Excel도 화면과 같은 배치 (4단 머리글 병합, OT 연두색, 토·일 빨간 글씨, 틀 고정)
 
 ### 12-3. ST / OT 계산 규칙 (`src/outlook_reader.py` `assign_st_ot()`)
 

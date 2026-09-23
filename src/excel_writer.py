@@ -7,7 +7,7 @@ excel_writer.py  ─  xlsxwriter 기반 주간보고서 Excel 생성
 """
 from __future__ import annotations
 import re
-from datetime import datetime, date as date_type
+from datetime import datetime, timedelta, date as date_type
 
 import xlsxwriter
 
@@ -554,115 +554,17 @@ def _data(ws, rows: list[dict], fmts: dict, wb):
 # ════════════════════════════════════════════════════════════════════
 
 def _plant_mh(wb, rows: list[dict], fmts: dict):
+    """M/H 입력 시스템과 같은 배치 (plant_mh.py 공통). 실적 주의 월~일 전체 표시."""
+    import plant_mh
     ws = wb.add_worksheet('Plant MH')
 
-    this_rows = [r for r in rows if r.get('source') == 'this_week' and r.get('this_week_h', 0) > 0]
-    if not this_rows:
+    items = plant_mh.aggregate(rows)
+    if not items:
         ws.write(0, 0, '이번주 [실적] 데이터 없음')
         return
 
-    dates = sorted(set(
-        datetime(r['date'].year, r['date'].month, r['date'].day).date()
-        if isinstance(r['date'], datetime) else r['date']
-        for r in this_rows
-    ))
-
-    DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-    hdr_fmt = wb.add_format({'font_name':'Calibri','font_size':10,'bold':True,
-                              'border':1,'align':'center','valign':'vcenter',
-                              'bg_color':'#D9E1F2','text_wrap':True})
-    dat_fmt = wb.add_format({'font_name':'Calibri','font_size':10,
-                              'border':1,'valign':'vcenter'})
-    num_fmt = wb.add_format({'font_name':'Calibri','font_size':10,
-                              'border':1,'align':'center','valign':'vcenter','num_format':'0.0'})
-    tot_fmt = wb.add_format({'font_name':'Calibri','font_size':10,'bold':True,
-                              'border':1,'align':'center','valign':'vcenter',
-                              'bg_color':'#FFE699','num_format':'0.0'})
-    tot_lbl = wb.add_format({'font_name':'Calibri','font_size':10,'bold':True,
-                              'border':1,'align':'center','valign':'vcenter','bg_color':'#FFE699'})
-
-    # 열 구성: A~D 정보 / 날짜마다 ST·OT 두 칸 / ST TOTAL / OT TOTAL
-    n_dates = len(dates)
-    c_st_tot = 4 + 2 * n_dates
-    c_ot_tot = c_st_tot + 1
-
-    # 열 너비
-    ws.set_column(0, 0, 12)
-    ws.set_column(1, 1, 12)
-    ws.set_column(2, 2, 12)
-    ws.set_column(3, 3, 30)
-    ws.set_column(4, c_st_tot - 1, 6)
-    ws.set_column(c_st_tot, c_ot_tot, 9)
-
-    # 헤더 (1행: 날짜 / 2행: ST·OT)
-    ws.set_row(0, 30)
-    ws.set_row(1, 18)
-    for ci, hd in enumerate(['구분','Project Code','Func. Code','Description']):
-        ws.merge_range(0, ci, 1, ci, hd, hdr_fmt)
-    for di, d in enumerate(dates):
-        c = 4 + 2 * di
-        ws.merge_range(0, c, 0, c + 1,
-                       f'{d.month}/{d.day}\n({DAY_NAMES[d.weekday()]})', hdr_fmt)
-        ws.write(1, c,     'ST', hdr_fmt)
-        ws.write(1, c + 1, 'OT', hdr_fmt)
-    ws.merge_range(0, c_st_tot, 1, c_st_tot, 'ST\nTOTAL', hdr_fmt)
-    ws.merge_range(0, c_ot_tot, 1, c_ot_tot, 'OT\nTOTAL', hdr_fmt)
-
-    # 집계: key → {date: [ST, OT]}
-    agg: dict[tuple, dict] = {}
-    order: list[tuple] = []
-    for r in this_rows:
-        key = (r['gubun'], r['project_code'], r['func_code'], r['func_name'])
-        dt  = r['date'].date() if isinstance(r['date'], datetime) else r['date']
-        if key not in agg:
-            agg[key] = {d: [0.0, 0.0] for d in dates}
-            order.append(key)
-        cell = agg[key][dt]
-        cell[0] = round(cell[0] + r.get('this_week_st', r.get('this_week_h', 0.0)), 1)
-        cell[1] = round(cell[1] + r.get('this_week_ot', 0.0), 1)
-
-    def put(row, col, v, fmt):
-        if v:
-            ws.write(row, col, v, fmt)
-        else:
-            ws.write_blank(row, col, None, fmt)
-
-    total_by_date = {d: [0.0, 0.0] for d in dates}
-    grand_st = grand_ot = 0.0
-
-    for ri, key in enumerate(order, 2):
-        ws.set_row(ri, 18)
-        gubun, pc, fc, desc = key
-        hm = agg[key]
-        row_st = round(sum(hm[d][0] for d in dates), 1)
-        row_ot = round(sum(hm[d][1] for d in dates), 1)
-        grand_st = round(grand_st + row_st, 1)
-        grand_ot = round(grand_ot + row_ot, 1)
-        ws.write(ri, 0, gubun, dat_fmt)
-        ws.write(ri, 1, pc,    dat_fmt)
-        ws.write(ri, 2, fc,    dat_fmt)
-        ws.write(ri, 3, desc,  dat_fmt)
-        for di, d in enumerate(dates):
-            st, ot = hm[d]
-            put(ri, 4 + 2 * di,     st, num_fmt)
-            put(ri, 4 + 2 * di + 1, ot, num_fmt)
-            total_by_date[d][0] = round(total_by_date[d][0] + st, 1)
-            total_by_date[d][1] = round(total_by_date[d][1] + ot, 1)
-        put(ri, c_st_tot, row_st, num_fmt)
-        put(ri, c_ot_tot, row_ot, num_fmt)
-
-    # 합계 행
-    tr = len(order) + 2
-    ws.set_row(tr, 20)
-    ws.write(tr, 0, '합계', tot_lbl)
-    ws.write_blank(tr, 1, None, tot_lbl)
-    ws.write_blank(tr, 2, None, tot_lbl)
-    ws.write_blank(tr, 3, None, tot_lbl)
-    for di, d in enumerate(dates):
-        put(tr, 4 + 2 * di,     total_by_date[d][0], tot_fmt)
-        put(tr, 4 + 2 * di + 1, total_by_date[d][1], tot_fmt)
-    put(tr, c_st_tot, grand_st, tot_fmt)
-    put(tr, c_ot_tot, grand_ot, tot_fmt)
-
-    # 안내
-    ws.write(tr + 2, 0, '※ ST: 평일 08:30~17:30 (하루 최대 8H)  |  OT: 그 외 시간 및 토·일')
+    ds = [plant_mh.to_date(r['date']) for r in rows if r.get('source') == 'this_week']
+    first = min(ds)
+    first = first - timedelta(days=first.weekday())          # 그 주 월요일
+    dates = plant_mh.date_list(first, plant_mh.week_sunday(max(ds)))
+    plant_mh.write_sheet(wb, ws, items, dates)
