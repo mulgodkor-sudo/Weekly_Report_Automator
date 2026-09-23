@@ -20,17 +20,6 @@ if not exist "%TARGET_DIR%" (
     exit /b 1
 )
 
-echo Backing up current src folder...
-set "BACKUP_DIR=%~dp0src_backup_v%BASELINE_VERSION%_%RANDOM%"
-xcopy /Y /E /I /Q "%TARGET_DIR%" "%BACKUP_DIR%" >nul
-if errorlevel 1 (
-    echo ERROR: backup failed. Aborting - nothing was changed.
-    pause
-    exit /b 1
-)
-echo Backup saved to: %BACKUP_DIR%
-echo.
-
 echo Writing patch data...
 > "%TMP_B64%" (
 echo UEsDBBQAAgAIAJ0u01wztYcKRR8AAJCDAAAGAAAAYXBwLnB53D1rc9RGtt/9K/oqlYpEzOCxjYGp
@@ -378,7 +367,7 @@ echo Decoding patch data...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$b64 = (Get-Content -Raw '%TMP_B64%') -replace '\s',''; [IO.File]::WriteAllBytes('%TMP_ZIP%', [Convert]::FromBase64String($b64))"
 if errorlevel 1 (
     echo ERROR: decode failed. Your files were not changed.
-    del "%TMP_B64%" >nul 2>&1
+    del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
     pause
     exit /b 1
 )
@@ -386,8 +375,7 @@ if errorlevel 1 (
 echo Applying patch to "%TARGET_DIR%"...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%TMP_ZIP%' -DestinationPath '%TARGET_DIR%' -Force"
 if errorlevel 1 (
-    echo ERROR: patch apply failed. Restoring backup...
-    xcopy /Y /E /I /Q "%BACKUP_DIR%" "%TARGET_DIR%" >nul
+    echo ERROR: patch apply failed.
     del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
     pause
     exit /b 1
@@ -395,10 +383,60 @@ if errorlevel 1 (
 
 del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
 
+set "OLD_TAG=V%BASELINE_VERSION%"
+set "NEW_TAG=V%PATCH_VERSION%"
+
+echo.
+echo Renaming exe file to v%PATCH_VERSION%...
+set "OLD_EXE="
+for %%F in ("%~dp0*.exe") do set "OLD_EXE=%%~nxF"
+if not defined OLD_EXE (
+    echo WARNING: no .exe found next to this file. Skipping exe rename.
+) else (
+    set "CHECK_NEW=!OLD_EXE:%NEW_TAG%=!"
+    if not "!CHECK_NEW!"=="!OLD_EXE!" (
+        echo Exe is already named for v%PATCH_VERSION%: !OLD_EXE!
+    ) else (
+        set "NEW_EXE=!OLD_EXE:%OLD_TAG%=%NEW_TAG%!"
+        if "!NEW_EXE!"=="!OLD_EXE!" (
+            echo WARNING: exe filename has no "%OLD_TAG%" pattern - rename it manually: !OLD_EXE!
+        ) else (
+            ren "%~dp0!OLD_EXE!" "!NEW_EXE!"
+            if errorlevel 1 (
+                echo WARNING: could not rename exe. Close the program if running, then rename manually to: !NEW_EXE!
+            ) else (
+                echo Renamed exe: !OLD_EXE! -^> !NEW_EXE!
+            )
+        )
+    )
+)
+
+echo.
+echo Renaming program folder to v%PATCH_VERSION%...
+for %%D in ("%~dp0.") do set "OLD_DIRNAME=%%~nxD"
+for %%D in ("%~dp0..") do set "PARENT_DIR=%%~fD"
+set "CHECK_DNEW=!OLD_DIRNAME:%NEW_TAG%=!"
+if not "!CHECK_DNEW!"=="!OLD_DIRNAME!" (
+    echo Folder is already named for v%PATCH_VERSION%: !OLD_DIRNAME!
+) else (
+    set "NEW_DIRNAME=!OLD_DIRNAME:%OLD_TAG%=%NEW_TAG%!"
+    if "!NEW_DIRNAME!"=="!OLD_DIRNAME!" (
+        echo WARNING: folder name has no "%OLD_TAG%" pattern - rename it manually: !OLD_DIRNAME!
+    ) else (
+        cd /d "%PARENT_DIR%"
+        ren "!OLD_DIRNAME!" "!NEW_DIRNAME!"
+        if exist "%PARENT_DIR%\!NEW_DIRNAME!" (
+            echo Renamed folder: !OLD_DIRNAME! -^> !NEW_DIRNAME!
+        ) else (
+            echo WARNING: could not rename folder. Close this window, the program, and any
+            echo Explorer windows open inside it, then rename the folder manually to: !NEW_DIRNAME!
+        )
+    )
+)
+
 echo.
 echo ============================================================
 echo  PATCH SUCCESS - now at v%PATCH_VERSION%
-echo  Backup of previous files: %BACKUP_DIR%
 echo  Please restart the program for the changes to take effect.
 echo ============================================================
 pause

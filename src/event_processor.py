@@ -42,7 +42,10 @@ def _same_day_merge(events: list[dict]) -> list[dict]:
             bucket[key] = e.copy()
             order.append(key)
         else:
-            bucket[key]["hours"] = round(bucket[key]["hours"] + e["hours"], 1)
+            b = bucket[key]
+            b["hours"]    = round(b["hours"] + e["hours"], 1)
+            b["st_hours"] = round(b.get("st_hours", 0.0) + e.get("st_hours", 0.0), 1)
+            b["ot_hours"] = round(b.get("ot_hours", 0.0) + e.get("ot_hours", 0.0), 1)
 
     return [bucket[k] for k in order]
 
@@ -134,6 +137,8 @@ def build_rows(this_week: list[dict], next_week: list[dict]) -> list[dict]:
                 subject        = subj,
                 body           = body,
                 this_week_h    = ev["hours"],
+                this_week_st   = ev.get("st_hours", ev["hours"]),
+                this_week_ot   = ev.get("ot_hours", 0.0),
                 next_week_h    = 0.0,
                 highlight      = False,   # 노란 음영 제거
                 source         = "this_week",
@@ -174,6 +179,8 @@ def build_rows(this_week: list[dict], next_week: list[dict]) -> list[dict]:
                 subject        = subj,
                 body           = body,
                 this_week_h    = 0.0,
+                this_week_st   = 0.0,
+                this_week_ot   = 0.0,
                 next_week_h    = ev["hours"],
                 highlight      = False,
                 source         = "next_week_only",
@@ -200,11 +207,12 @@ def get_warnings(
     """사전 검토 결과 경고 문자열 반환"""
     warns: list[str] = []
 
+    # 기준시간(40H/8H) 비교는 정규시간(ST)으로 한다. OT는 아래 날짜별 점검에서 별도 표시.
     this_total = sum(
-        e["hours"] for e in this_week_raw if e.get("tag") == "실적"
+        e.get("st_hours", e["hours"]) for e in this_week_raw if e.get("tag") == "실적"
     )
     next_total = sum(
-        e["hours"] for e in next_week_raw if e.get("tag") == "계획"
+        e.get("st_hours", e["hours"]) for e in next_week_raw if e.get("tag") == "계획"
     )
 
     # ── 시간 경고 (기준 미만 / 초과 / 자동보정) ─────────────────
@@ -226,11 +234,30 @@ def get_warnings(
                     f"{expected:.0f}H 초과. 시간 재확인 필요")
 
     if this_week_raw:
-        w = _time_warn(this_total, this_expected, "이번주 실적")
+        w = _time_warn(this_total, this_expected, "이번주 실적 ST")
         if w: warns.append(w)
     if next_week_raw:
-        w = _time_warn(next_total, next_expected, "다음주 계획")
+        w = _time_warn(next_total, next_expected, "다음주 계획 ST")
         if w: warns.append(w)
+
+    # ── 날짜별 ST / OT 점검 (이번주 실적) ─────────────────────────
+    # ST: 평일 08:30~17:30 (하루 최대 8H) / OT: 그 외 시간, 토·일 전체
+    DAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
+    by_day: dict = {}
+    for e in this_week_raw:
+        if e.get("tag") != "실적":
+            continue
+        st_ot = by_day.setdefault(e["date"].date(), [0.0, 0.0])
+        st_ot[0] += e.get("st_hours", e["hours"])
+        st_ot[1] += e.get("ot_hours", 0.0)
+    for d in sorted(by_day):
+        st, ot = by_day[d]
+        day_str = f"{d.strftime('%m월 %d일')}({DAY_KO[d.weekday()]})"
+        # 일별 모드(기준 8H)는 위 합계 경고와 중복되므로 ST 미만 경고 생략
+        if d.weekday() < 5 and st < 8.0 and this_expected > 8.0:
+            warns.append(f"⚠️  {day_str} - 정규시간(ST) {st:.1f}H  ←  8H 미만. 시간 재확인 필요")
+        if ot > 0:
+            warns.append(f"ℹ️  {day_str} - OT {ot:.1f}H  (ST {st:.1f}H)")
 
     # ── 프로젝트 코드 / Function Code 누락 경고 ─────────────────
     seen_missing: set[tuple] = set()

@@ -365,7 +365,6 @@ class WeeklyReportApp:
             activebackground="#6D4C41", activeforeground="white",
             disabledforeground="#AAAAAA",
             relief="flat", padx=12, pady=7, cursor="hand2",
-            state="disabled",
         )
         self.btn_mh.pack(side="left", padx=(0, 8))
 
@@ -460,11 +459,9 @@ class WeeklyReportApp:
         MonthlyDialog(self.root)
 
     def _open_plant_mh(self):
-        if not self._rows:
-            from tkinter import messagebox
-            messagebox.showwarning("경고", "먼저 일정을 불러오세요.")
-            return
-        PlantMHDialog(self.root, self._rows)
+        # 기본 조회 기간 = Weekly Report 조회 기간(이번주). 창 안에서 조정 가능.
+        start, end = self.v_ts.get().strip(), self.v_te.get().strip()
+        PlantMHDialog(self.root, start, end)   # 창이 열리면서 아웃룩에서 바로 조회
 
     def _browse_save(self):
         p = filedialog.askdirectory(title="저장 경로 선택")
@@ -531,7 +528,6 @@ class WeeklyReportApp:
 
     def _do_load(self, ts, te, ns, ne, label="", mode="week", single_date=None):
         self.btn_gen.config(state="disabled")
-        self.btn_mh.config(state="disabled")
         self.progress.start()
         self._set_status(f"아웃룩 {label} 일정 불러오는 중...")
         self._set_warn("⏳  아웃룩 일정을 불러오는 중입니다...\n\n잠시 기다려 주세요.")
@@ -618,10 +614,13 @@ class WeeklyReportApp:
             self.v_filename.set(
                 f"WeeklyReport_{mon.month}월{(mon.day-1)//7+1}주차.xlsx")
 
-        th = sum(e["hours"] for e in this_proc)
-        nh = sum(e["hours"] for e in next_proc)
+        th  = sum(e["hours"] for e in this_proc)
+        tst = sum(e.get("st_hours", e["hours"]) for e in this_proc)
+        tot = sum(e.get("ot_hours", 0.0) for e in this_proc)
+        nh  = sum(e["hours"] for e in next_proc)
         lines = []
-        if this_proc: lines.append(f"✅  이번주 [실적] : {len(this_proc)}건  (합계 {th:.1f}H)")
+        if this_proc: lines.append(f"✅  이번주 [실적] : {len(this_proc)}건  "
+                                   f"(합계 {th:.1f}H = ST {tst:.1f}H + OT {tot:.1f}H)")
         if next_proc: lines.append(f"✅  다음주 [계획] : {len(next_proc)}건  (합계 {nh:.1f}H)")
         if ov_cnt:    lines.append(f"🔁  되풀이 모임 override 적용 : {ov_cnt}건")
         lines.append("")
@@ -634,7 +633,6 @@ class WeeklyReportApp:
         self._set_warn("\n".join(lines))
         if self._rows:
             self.btn_gen.config(state="normal")
-            self.btn_mh.config(state="normal")
             self._set_status(f"로드 완료  →  {len(self._rows)}개 행 준비됨")
         else:
             self._set_status("로드 완료  →  [실적/계획] 항목 없음")
@@ -697,7 +695,6 @@ class WeeklyReportApp:
     def _on_err(self, msg: str, title: str):
         self.progress.stop()
         self.btn_gen.config(state="disabled")
-        self.btn_mh.config(state="disabled")
         self._set_status(f"오류  →  {msg[:70]}")
         self._set_warn(f"❌  {title}\n\n{msg}")
         messagebox.showerror(title, msg)

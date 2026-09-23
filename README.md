@@ -21,6 +21,7 @@ Weekly_Report_Automator/
     ├── outlook_reader.py    ← Outlook COM 연동
     ├── overrides.py         ← 되풀이 모임 override 관리
     ├── override_dialog.py   ← 되풀이 모임 설정 UI
+    ├── plant_mh.py          ← Plant M/H 집계 + Excel 시트 (공통)
     ├── plant_mh_dialog.py   ← Plant M/H 입력 확인 UI
     ├── monthly_processor.py ← 월간업무정리 처리 로직
     ├── monthly_dialog.py    ← 월간업무정리 UI + Excel 저장
@@ -88,8 +89,8 @@ dist/Weekly_Report_Automator_V1.11/
 1. Weekly_Report_Automator_VX.X.exe 가 있는 폴더(= src/ 폴더가 있는 폴더)에
    apply_patch_vX.X.bat 복사
 2. apply_patch_vX.X.bat 더블클릭
-   - 패치 전 src/ 폴더를 src_backup_v* 폴더로 자동 백업
-   - 실패 시 자동으로 백업본 복원
+   - src/ 파일을 즉시 덮어쓴다 (백업 없음, 임시파일은 종료 시 자동 삭제)
+   - .exe 파일명과 그 exe가 들어있는 폴더명도 새 버전 표기로 자동 변경
 3. 프로그램 재시작
 ```
 
