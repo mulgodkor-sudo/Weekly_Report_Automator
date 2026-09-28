@@ -11,6 +11,8 @@
    - `src/`의 `.py` / `.json` 14개 파일을 전체 교체 (백업 없음, 임시파일은 종료 시 자동 삭제)
    - exe 파일명과 폴더명의 `V1.11` 또는 `V1.1` 표기를 `V1.2`로 자동 변경
      (예: `Weekly_Report_Automator_V1.11.exe` → `Weekly_Report_Automator_V1.2.exe`)
+   - **MSI로 설치한 경우**: 설치 폴더 `%LOCALAPPDATA%\Programs\Weekly_Report_Automator\`에 복사해서 실행.
+     바로가기가 깨지지 않도록 exe·폴더 이름은 바꾸지 않는다 (`msi_installed.txt`로 판별).
 3. 프로그램 재시작. 화면·스플래시에 `Ver.1.2` 표시되면 적용 완료.
    (폴더명이 바뀌므로 바로가기를 쓰고 있다면 새 경로로 다시 만들 것)
 

@@ -9,10 +9,15 @@
 ```
 Weekly_Report_Automator/
 ├── main.py                  ← 런처 (PyInstaller 진입점)
-├── build.bat                ← PyInstaller 빌드 스크립트
+├── build_msi.bat            ← ★ 한 번에 onedir 폴더 + MSI 설치파일 빌드
+├── build.bat                ← onedir 폴더만 빌드 (build_msi.bat onedir 호출)
+├── installer/
+│   ├── msi_tool.py          ← 버전 읽기 + WiX 설치 정의(.wxs) 자동 생성
+│   └── msi_installed.txt    ← MSI 설치 표시 파일 (패치가 이름 변경을 건너뜀)
 ├── patches/
 │   ├── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
 │   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치
+│   ├── make_patch.py         ← 패치 .bat 생성기
 │   └── README.md             ← 패치 안내
 └── src/
     ├── app.py               ← 메인 UI (tkinter)
@@ -66,16 +71,40 @@ conditional (GA08-01 등)          → 조건부 판단
 
 ## 🏗️ 빌드 방법
 
+소스 폴더(이 README가 있는 폴더)에서 **`build_msi.bat` 더블클릭** 한 번이면 끝.
+
 ```cmd
-# 1. 소스 폴더에서 실행
-build.bat
+build_msi.bat          ← onedir 폴더 + MSI 설치파일
+build.bat              ← onedir 폴더만 (= build_msi.bat onedir)
 
 # 결과물
-dist/Weekly_Report_Automator_V1.2/
+dist/Weekly_Report_Automator_V1.2/          ← onedir 프로그램 폴더 (압축해서 배포 가능)
 ├── Weekly_Report_Automator_V1.2.exe
 ├── _internal/      ← DLL
 └── src/            ← .py 파일 (패치 가능)
+dist/Weekly_Report_Automator_V1.2.msi       ← 설치파일
 ```
+
+- **버전은 `src/config.py`의 `APP_VERSION` 하나만 바꾸면** 폴더명·exe명·MSI 버전에 모두 반영된다.
+- 필요한 것: Python 3 (PATH 등록). `pyinstaller / pywin32 / xlsxwriter / openpyxl`이 없으면 자동 설치.
+- MSI 도구: **WiX Toolset v3.14 (무료, MS-RL 라이선스)**. 처음 한 번 `tools/wix314/`에 자동 다운로드
+  (SHA256 검증). 회사망에서 막히면 https://github.com/wixtoolset/wix3/releases 의
+  `wix314-binaries.zip`을 받아 `tools/wix314/`에 풀어두면 된다. .NET Framework 4 필요 (Windows 10/11 기본 포함).
+- 예전 빌드 오류 재발 방지:
+  - bat 파일은 영문(ASCII)만 사용 → 한글 코드페이지 오류 없음. 한글/공백/네트워크 드라이브 경로에서도 동작
+  - 매번 `dist/…`, `build/`, `.spec` 삭제 + PyInstaller `--clean` → 이전 빌드의 `src/`가 새 코드를 가리는 문제 없음
+  - 빌드 결과 exe, msi가 실제로 생성됐는지 확인 후 성공 표시
+  - MSI 검증(ICE)이 PC 정책 때문에 실패하면 검증 없이 자동 재시도
+
+### MSI 설치파일
+
+- 더블클릭하면 **관리자 권한 없이** 현재 사용자에게 설치
+  - 설치 위치: `%LOCALAPPDATA%\Programs\Weekly_Report_Automator\` (exe 이름: `Weekly_Report_Automator.exe`)
+  - 시작 메뉴 + 바탕화면 바로가기 생성, 제어판 "앱 및 기능"에서 제거 가능
+- 새 버전 MSI를 설치하면 이전 버전은 자동 제거 후 설치 (같은 버전 재설치도 가능)
+- 설정(`Documents\WeeklyReportAutomaker_*.json`)은 설치/제거와 무관하게 유지
+- 패치(`apply_patch_vX.X.bat`)는 설치 폴더에 복사해서 그대로 사용 가능. 이 경우 바로가기가 깨지지 않도록
+  exe·폴더 이름은 바꾸지 않는다.
 
 ---
 

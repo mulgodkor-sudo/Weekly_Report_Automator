@@ -166,12 +166,12 @@ echo dY363d0bbdH/EqJXcsNEQnr8IzeSFMmp5XDXqOeGi3RmxRvGheUhH/DMi/kW8GQ+WLZBIz8AL4c
 echo yVEQOjdexpqPmPN8zH64LGh/NFBkEDu6z2VftsXID/NElvw41aIlJZNSrBaNLYoiib5nQiYUMDy4
 echo bnWrl4SREpzJCR0lriTiqL+NoCjicYoZ1mGi+WVb4cVbezABaawbmwJKUj7uAZTTY0eHziRuNA/V
 echo Q1Do78JczVFYKW6xllhBKhD5PUdQNBq47Yi5ZjB8Vjr8WHaVbBoLCoNBq4OyphQLmLkAzwO9dyKt
-echo LPfMs0IMkuwMLxI0R8fFURydY8n14rQYdzqwKUBk/j9QSwMEFAAAAAgAUR48XWYYjcfvAAAAIAEA
+echo LPfMs0IMkuwMLxI0R8fFURydY8n14rQYdzqwKUBk/j9QSwMEFAAAAAgAfB48XWYYjcfvAAAAIAEA
 echo AAsAAABjb25maWcuanNvbqvmUlBQSivNS45Pzk9JjU+tSE7NiS9ILMlQslJQirDSf72t4U3LHIXX
 echo a3YAqbdTV+i/2rHh1eaWtz0NUNabliVAUt8wHqryzfTW12u26BvrWioAFbzpWPBm3oTXi3v0DY31
 echo FPxLS3Ly87PjXcG2uFaUFCUml+QXxfumJmck5mUmJ+agGBr/pnnum6YNb1o2vlne8HbinHgjMz0D
 echo M72KnOIKJR2Qu4sLchKLM+IzcxPTU0HuTSwuTi0p1ocI6xXkpUOUZSbn58WnZeYgqwlOzkhNKc1J
-echo jfdMztcDKoCoLEstKs7MzwOpM9QzUuKq5QIAUEsDBBQAAAAIAFEePF1zwhz2+woAADQdAAAJAAAA
+echo jfdMztcDKoCoLEstKs7MzwOpM9QzUuKq5QIAUEsDBBQAAAAIAHwePF1zwhz2+woAADQdAAAJAAAA
 echo Y29uZmlnLnB5zVltb9vIEf6uXzGlP4RMaPocIMBBgAq4jh0YzSVGXq4BHJegJcpmTJMqSfmlOR90
 echo iXzwxb7GudgXuZVdB03a5GDglJxycYrkz+SjSP2HzuySIinJeUHR6wm2SXF3Z2eenXlmhhYEIZO3
 echo raIxq5RWMkH1UXCwA61mxf/nIZyC8bKV9wzbglG7oEN7bTPYa/pH2+Df3Q0OvgL/Yd2/X88ED+4F
@@ -890,8 +890,8 @@ echo VIH5YNvYddz5ioPNG0BRGFh16GtJn8dvBjxk1tB9ac4s/K42+G53qPNtYghr5MKorQcQAF1P+sJ
 echo y1gJ4eZf8GQsfjYPgRD8hbAo6Wtfsi/j6q4MM+ewDfAhelj5XOACmJR+eX/rQJ13CTGI/xL1bCfB
 echo e28l+Hb15SutiwHBrbvhHYmnEa8u2ZfsYGeNHRO4sw0c3ft+i0PtvVj950xHPr3u3KaoI3rKqAlM
 echo 1vZvCQ7ovf4PUEsBAhQDFAAAAAgASiE3XZM5uiPTHwAA6oMAAAYAAAAAAAAAAAAAAKSBAAAAAGFw
-echo cC5weVBLAQIUAxQAAAAIAFEePF1mGI3H7wAAACABAAALAAAAAAAAAAAAAACkgfcfAABjb25maWcu
-echo anNvblBLAQIUAxQAAAAIAFEePF1zwhz2+woAADQdAAAJAAAAAAAAAAAAAACkgQ8hAABjb25maWcu
+echo cC5weVBLAQIUAxQAAAAIAHwePF1mGI3H7wAAACABAAALAAAAAAAAAAAAAACkgfcfAABjb25maWcu
+echo anNvblBLAQIUAxQAAAAIAHwePF1zwhz2+woAADQdAAAJAAAAAAAAAAAAAACkgQ8hAABjb25maWcu
 echo cHlQSwECFAMUAAAACABKITddh0iPFZEOAADVNAAAEgAAAAAAAAAAAAAApIExLAAAZXZlbnRfcHJv
 echo Y2Vzc29yLnB5UEsBAhQDFAAAAAgASiE3XVao/rHqHAAAKmUAAA8AAAAAAAAAAAAAAKSB8joAAGV4
 echo Y2VsX3dyaXRlci5weVBLAQIUAxQAAAAIAHsBN11f2y7QqgYAAF8VAAALAAAAAAAAAAAAAACkgQlY
@@ -926,6 +926,13 @@ if errorlevel 1 (
 )
 
 del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
+
+REM MSI install: keep exe/folder names (Start menu and desktop shortcuts point to them)
+if exist "%~dp0msi_installed.txt" (
+    echo.
+    echo Installed by MSI - exe and folder names are kept unchanged.
+    goto :patch_done
+)
 
 echo.
 echo Renaming exe file to v%PATCH_VERSION%...
@@ -983,6 +990,7 @@ if not "!CHECK_DNEW!"=="!OLD_DIRNAME!" (
     )
 )
 
+:patch_done
 echo.
 echo  PATCH SUCCESS - now at v%PATCH_VERSION%
 echo  Please restart the program for the changes to take effect.

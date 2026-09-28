@@ -607,11 +607,17 @@ error_message: '목록에서 선택하세요'
 
 ## 14. 빌드 및 패치
 
-### 14-1. 빌드 (`build.bat`)
+### 14-1. 빌드 (`build_msi.bat` / `build.bat`)
 
-- PyInstaller `--onedir` 방식
-- 출력: `dist/Weekly_Report_Automator_V1.11/Weekly_Report_Automator_V1.11.exe`
-- `main.py`가 exe에 고정되며, 이후 패치로 갱신 불가 (`README.md:96–98`)
+- `build_msi.bat`: onedir 폴더 + MSI 설치파일을 한 번에 생성 (`build.bat` = onedir만, 내부적으로 `build_msi.bat onedir` 호출)
+- 버전은 `src/config.py` `APP_VERSION`에서 읽음 (`installer/msi_tool.py version`)
+- 출력: `dist/Weekly_Report_Automator_V{ver}/` (PyInstaller `--onedir`), `dist/Weekly_Report_Automator_V{ver}.msi`
+- MSI: WiX Toolset v3.14 (무료, MS-RL), 없으면 `tools/wix314/`에 자동 다운로드 + SHA256 검증
+  - 사용자별 설치(관리자 불필요): `%LOCALAPPDATA%\Programs\Weekly_Report_Automator\Weekly_Report_Automator.exe`
+  - 시작 메뉴·바탕화면 바로가기, MajorUpgrade(이전 버전 자동 제거, 같은 버전 재설치 허용)
+  - MSI 버전 변환: 소수 둘째 자리까지 → `1.2` = `1.20.0`, `1.11` = `1.11.0` (1.1 < 1.11 < 1.2 순서 유지)
+  - 제거 시 `src/`의 패치 추가 파일과 `__pycache__`까지 삭제
+- `main.py`가 exe에 고정되며, 이후 패치로 갱신 불가
 - `main.py`의 `_setup_src()`가 `exe_dir/src`를 `sys.path` 앞에 삽입 → `src/*.py` 패치 가능
 
 ### 14-2. 패치 (`patches/apply_patch_v1.11.bat`)

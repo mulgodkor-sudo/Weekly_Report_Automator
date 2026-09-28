@@ -11,6 +11,7 @@ make_patch.py — 단일 .bat 패치 파일 생성기
 src/ 의 *.py, *.json 전체를 zip → base64 로 .bat 안에 넣는다.
 .bat 실행 시 exe 옆 src/ 폴더를 통째로 덮어쓰고, exe 파일명과 폴더명의
 버전 표기를 새 버전으로 바꾼다. 백업은 만들지 않고 임시파일은 항상 삭제한다.
+MSI 로 설치된 폴더(msi_installed.txt 존재)에서는 이름을 바꾸지 않는다 (바로가기 유지).
 """
 from __future__ import annotations
 import base64
@@ -70,6 +71,13 @@ if errorlevel 1 (
 
 del "%TMP_B64%" "%TMP_ZIP%" >nul 2>&1
 
+REM MSI install: keep exe/folder names (Start menu and desktop shortcuts point to them)
+if exist "%~dp0msi_installed.txt" (
+    echo.
+    echo Installed by MSI - exe and folder names are kept unchanged.
+    goto :patch_done
+)
+
 echo.
 echo Renaming exe file to v%PATCH_VERSION%...
 set "OLD_EXE="
@@ -126,6 +134,7 @@ if not "!CHECK_DNEW!"=="!OLD_DIRNAME!" (
     )
 )
 
+:patch_done
 echo.
 echo  PATCH SUCCESS - now at v%PATCH_VERSION%
 echo  Please restart the program for the changes to take effect.
