@@ -2,3 +2,5 @@ dist/
 build/
 tools/
 *.spec
+installer/__pycache__/
+patches/__pycache__/
