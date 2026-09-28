@@ -33,11 +33,15 @@ def _config_path() -> str:
 
 CONFIG_FILE = _config_path()
 
+# 프로그램 버전 — 패치로 교체되는 이 파일이 기준.
+# (문서 폴더 config.json에 예전 version 값이 남아 있어도 화면에는 이 값을 표시)
+APP_VERSION = "1.2"
+
 _DEFAULT_CONFIG: dict = {
     "func_code_excel_path": "",
     "splash_image": "assets/splash.png",
     "icon_file":    "assets/Schedule_Ico.ico",
-    "version":      "1.11",
+    "version":      APP_VERSION,
 }
 
 # ── config.json 읽기/쓰기 ────────────────────────────────────────────
@@ -66,9 +70,8 @@ def save_config(cfg: dict) -> None:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
 
 def get_version_str(cfg: dict | None = None) -> str:
-    """화면에 표시할 'Ver.X.X' 문자열. config.json의 version 키를 따른다."""
-    cfg = cfg or load_config()
-    return f"Ver.{cfg.get('version', _DEFAULT_CONFIG['version'])}"
+    """화면에 표시할 'Ver.X.X' 문자열. APP_VERSION 기준 (cfg 인자는 호환용)."""
+    return f"Ver.{APP_VERSION}"
 
 # ── 구분 선택지 ──────────────────────────────────────────────────────
 GUBUN_OPTIONS = _GUBUN_OPTIONS   # fc_rules.py 에서 관리

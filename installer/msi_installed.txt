@@ -1,0 +1,2 @@
+This folder was installed by the Weekly Report Automator MSI installer.
+Patch files (apply_patch_vX.X.bat) keep the exe and folder names unchanged here.
