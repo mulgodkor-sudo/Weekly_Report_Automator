@@ -1,4 +1,4 @@
-# 📊 Weekly Report Automator  `Ver.1.11`
+# 📊 Weekly Report Automator  `Ver.1.2`
 
 > DL이앤씨 플랜트본부 기계설계팀 — 아웃룩 캘린더 기반 주간보고서 자동 생성 도구
 
@@ -11,7 +11,9 @@ Weekly_Report_Automator/
 ├── main.py                  ← 런처 (PyInstaller 진입점)
 ├── build.bat                ← PyInstaller 빌드 스크립트
 ├── patches/
-│   └── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
+│   ├── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
+│   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치
+│   └── README.md             ← 패치 안내
 └── src/
     ├── app.py               ← 메인 UI (tkinter)
     ├── config.py            ← 설정 관리 + FC 데이터 로더
@@ -69,8 +71,8 @@ conditional (GA08-01 등)          → 조건부 판단
 build.bat
 
 # 결과물
-dist/Weekly_Report_Automator_V1.11/
-├── Weekly_Report_Automator_V1.11.exe
+dist/Weekly_Report_Automator_V1.2/
+├── Weekly_Report_Automator_V1.2.exe
 ├── _internal/      ← DLL
 └── src/            ← .py 파일 (패치 가능)
 ```

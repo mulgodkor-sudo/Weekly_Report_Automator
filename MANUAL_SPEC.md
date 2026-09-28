@@ -10,8 +10,8 @@
 | 항목 | 내용 |
 |------|------|
 | 프로그램명 | Weekly Report Automator |
-| 버전 문자열 | `config.json`의 `version` 키 기준 (`src/config.py:41`) |
-| 현재 버전 | `"1.11"` (`src/config.py:41`) |
+| 버전 문자열 | `src/config.py`의 `APP_VERSION` 상수 기준 (`get_version_str()`) |
+| 현재 버전 | `"1.2"` (`src/config.py` `APP_VERSION`) |
 | 주 기능 | Microsoft Outlook 캘린더에서 [실적]/[계획] 태그 일정을 읽어 Weekly Report Excel 파일 자동 생성 |
 | 진입점 | `main.py` (PyInstaller 빌드 시 exe에 고정) |
 | UI 프레임워크 | Python 3.13 + tkinter |
@@ -39,6 +39,8 @@ Weekly_Report_Automator/
 ├── build.bat                  ← PyInstaller 빌드 스크립트
 ├── patches/
 │   ├── apply_patch_v1.11.bat  ← v1.1 → v1.11 패치
+│   ├── apply_patch_v1.2.bat   ← v1.1 / v1.11 → v1.2 패치
+│   ├── make_patch.py          ← 패치 .bat 생성기
 │   └── README.md              ← 패치 사용 안내
 └── src/
     ├── app.py                 ← 메인 UI (tkinter)
@@ -75,7 +77,7 @@ Weekly_Report_Automator/
   "func_code_excel_path": "",
   "splash_image": "assets/splash.png",
   "icon_file":    "assets/Schedule_Ico.ico",
-  "version":      "1.11"
+  "version":      "1.2"
 }
 ```
 
