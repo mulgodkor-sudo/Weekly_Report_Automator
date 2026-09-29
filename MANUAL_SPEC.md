@@ -612,11 +612,13 @@ error_message: '목록에서 선택하세요'
 - `build_msi.bat`: onedir 폴더 + MSI 설치파일을 한 번에 생성 (`build.bat` = onedir만, 내부적으로 `build_msi.bat onedir` 호출)
 - 버전은 `src/config.py` `APP_VERSION`에서 읽음 (`installer/msi_tool.py version`)
 - 출력: `dist/Weekly_Report_Automator_V{ver}/` (PyInstaller `--onedir`), `dist/Weekly_Report_Automator_V{ver}.msi`
-- MSI: WiX Toolset v3.14 (무료, MS-RL), 없으면 `tools/wix314/`에 자동 다운로드 + SHA256 검증
-  - 사용자별 설치(관리자 불필요): `%LOCALAPPDATA%\Programs\Weekly_Report_Automator\Weekly_Report_Automator.exe`
+- MSI: WiX Toolset v5.0.2 (무료, MS-RL), `dotnet tool`로 설치·버전 고정 — MHS_Searcher 설치 구성과 동일
+  - 설치 정의: `installer/wix/Product.wxs` + `Variables.wxi` + `ui.ko-KR.wxl`(한국어 마법사) + 브랜딩 BMP
+  - 설치 위치: `C:\Program Files\Autotools_Mechanical\Weekly Report Automator\` (perMachine)
+  - 마법사: 시작 → 안내문(License.rtf, 빌드 시 버전 주입) → 설치 경로 → 진행 → 완료(실행 체크박스)
   - 시작 메뉴·바탕화면 바로가기, MajorUpgrade(이전 버전 자동 제거, 같은 버전 재설치 허용)
-  - MSI 버전 변환: 소수 둘째 자리까지 → `1.2` = `1.20.0`, `1.11` = `1.11.0` (1.1 < 1.11 < 1.2 순서 유지)
-  - 제거 시 `src/`의 패치 추가 파일과 `__pycache__`까지 삭제
+  - `src\` 폴더에 Users 수정 권한 → 패치를 관리자 권한 없이 적용, 제거 시 패치 추가 파일·`__pycache__`까지 삭제
+  - MSI 버전 변환: 소수 둘째 자리까지 → `1.2` = `1.20.0.0`, `1.11` = `1.11.0.0` (1.1 < 1.11 < 1.2 순서 유지)
 - `main.py`가 exe에 고정되며, 이후 패치로 갱신 불가
 - `main.py`의 `_setup_src()`가 `exe_dir/src`를 `sys.path` 앞에 삽입 → `src/*.py` 패치 가능
 

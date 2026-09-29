@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WixUI 문자열 오버라이드 (한국어).
+  build 시 `-culture ko-KR -loc installer\wix\ui.ko-KR.wxl` 로 적용.
+  WiX 기본 ko-KR 문자열 위에 덮어써서, 이미 설치된 상태로 MSI 를 재실행할 때
+  나오는 유지보수(maintenance) 화면을 아래 문구로 바꾼다.
+
+    [업데이트(덮어쓰기)]  = Repair : 이 MSI 내용으로 프로그램 파일을 다시 설치
+    [프로그램 삭제]        = Remove : 이 컴퓨터에서 제거
+    [취소]                 = 아무것도 하지 않고 건너뛰기
+  (구성 변경(Change) 버튼은 Product.wxs 의 ARPNOMODIFY=1 로 비활성됨)
+-->
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="ko-KR">
+
+  <!-- 유지보수 시작 화면 -->
+  <String Id="MaintenanceWelcomeDlgDescription" Value="이미 설치된 [ProductName] 을(를) 업데이트(이 설치 파일 내용으로 덮어쓰기)하거나 이 컴퓨터에서 삭제할 수 있습니다. 계속하려면 [다음]을, 아무 변경 없이 끝내려면 [취소]를 누르세요." />
+
+  <!-- 작업 선택 화면 -->
+  <String Id="MaintenanceTypeDlgTitle" Value="{\WixUI_Font_Title}업데이트 또는 삭제" />
+  <String Id="MaintenanceTypeDlgDescription" Value="수행할 작업을 선택한 뒤 [다음]을 누르세요. 그대로 두려면 [취소](건너뛰기)." />
+
+  <!-- Repair = 업데이트(덮어쓰기) -->
+  <String Id="MaintenanceTypeDlgRepairButton" Value="업데이트(&amp;U)" />
+  <String Id="MaintenanceTypeDlgRepairButtonTooltip" Value="이 설치 파일 내용으로 덮어쓰기" />
+  <String Id="MaintenanceTypeDlgRepairText" Value="이 설치 파일에 포함된 내용으로 프로그램 파일을 다시 설치(덮어쓰기)합니다." />
+
+  <!-- Remove = 프로그램 삭제 -->
+  <String Id="MaintenanceTypeDlgRemoveButton" Value="프로그램 삭제(&amp;R)" />
+  <String Id="MaintenanceTypeDlgRemoveButtonTooltip" Value="이 컴퓨터에서 제거" />
+  <String Id="MaintenanceTypeDlgRemoveText" Value="[ProductName] 을(를) 이 컴퓨터에서 제거합니다." />
+
+</WixLocalization>

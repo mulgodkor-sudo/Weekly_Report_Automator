@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import datetime
 import os
 import threading
+import traceback
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -184,10 +185,11 @@ class PlantMHDialog(tk.Toplevel):
             try:
                 from outlook_reader  import get_events
                 from event_processor import process_this_week, build_rows
-                rows = build_rows(process_this_week(get_events(start, show_end)), [])
-                self.after(0, lambda: self._on_ok(pm.aggregate(rows), dates))
+                rows  = build_rows(process_this_week(get_events(start, show_end)), [])
+                items = pm.aggregate(rows)
+                self.after(0, lambda: self._on_ok(items, dates))
             except Exception as e:
-                msg = str(e)
+                msg = f"{e}\n\n{traceback.format_exc()}"
                 self.after(0, lambda: self._on_err(msg))
             finally:
                 if _com_ok:
@@ -202,7 +204,13 @@ class PlantMHDialog(tk.Toplevel):
         self.progress.stop()
         self.btn_load.config(state="normal")
         self._items, self._dates = items, dates
-        self._render()
+        try:
+            self._render()
+        except Exception as e:
+            # 화면 오류가 조용히 묻히지 않도록 반드시 표시
+            self._items = []
+            self._on_err(f"표시 중 오류: {e}\n\n{traceback.format_exc()}")
+            return
         st = round(sum(it["st_total"] for it in items), 1)
         ot = round(sum(it["ot_total"] for it in items), 1)
         d0, d1 = dates[0], dates[-1]
@@ -217,7 +225,7 @@ class PlantMHDialog(tk.Toplevel):
             return
         self.progress.stop()
         self.btn_load.config(state="normal")
-        self.lbl_stat.config(text=f"오류: {msg[:60]}")
+        self.lbl_stat.config(text=f"오류: {msg.splitlines()[0][:60]}")
         messagebox.showerror("불러오기 오류", msg, parent=self)
 
     # ════════════════════════════════════════════════════════════════
@@ -241,13 +249,18 @@ class PlantMHDialog(tk.Toplevel):
             for w in fr.winfo_children():
                 w.destroy()
 
-        # 모든 행 높이를 고정해 왼쪽/오른쪽 표 행을 맞춤 (화면 배율 대응: 글꼴 기준)
-        from tkinter import font as tkfont
-        row_h  = tkfont.Font(self, font=FONT_B).metrics("linespace") + 6
+        # 모든 행 높이를 고정해 왼쪽/오른쪽 표 행을 맞춤 (화면 배율 대응: 실제 글자 높이 기준)
+        # ※ tkinter.font 모듈은 쓰지 않는다 — 이전 버전 exe 에는 번들되어 있지 않아
+        #   패치로 실행하면 ImportError 로 표가 안 그려졌음
+        probe = tk.Label(self, text="가Ag", font=FONT_B, pady=0, bd=0)
+        row_h = probe.winfo_reqheight() + 4
+        probe.destroy()
         n_rows = 4 + len(items) + 1
+        prev   = getattr(self, "_n_rows_prev", 0)
         for fr in (L, R):
-            for r in range(n_rows + 1):
-                fr.rowconfigure(r, minsize=row_h + 1)
+            for r in range(max(n_rows, prev)):
+                fr.rowconfigure(r, minsize=(row_h + 1) if r < n_rows else 0)
+        self._n_rows_prev = n_rows
 
         H = pm.C_HDR_BG
         # ── 왼쪽 고정 머리글 (4단 병합) ──
