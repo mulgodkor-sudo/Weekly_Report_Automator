@@ -12,8 +12,9 @@ Weekly_Report_Automator/
 ├── build_msi.bat            ← ★ 한 번에 onedir 폴더 + MSI 설치파일 빌드
 ├── build.bat                ← onedir 폴더만 빌드 (build_msi.bat onedir 호출)
 ├── installer/
-│   ├── msi_tool.py          ← 버전 읽기 + WiX 설치 정의(.wxs) 자동 생성
-│   └── msi_installed.txt    ← MSI 설치 표시 파일 (패치가 이름 변경을 건너뜀)
+│   ├── msi_tool.py          ← 버전 읽기 / MSI 버전 변환 / 설치 안내문 생성
+│   ├── msi_installed.txt    ← MSI 설치 표시 파일 (패치가 이름 변경을 건너뜀)
+│   └── wix/                 ← WiX v5 설치 정의 (Product.wxs, Variables.wxi, ui.ko-KR.wxl, 브랜딩 이미지)
 ├── patches/
 │   ├── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
 │   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치
@@ -87,24 +88,26 @@ dist/Weekly_Report_Automator_V1.2.msi       ← 설치파일
 
 - **버전은 `src/config.py`의 `APP_VERSION` 하나만 바꾸면** 폴더명·exe명·MSI 버전에 모두 반영된다.
 - 필요한 것: Python 3 (PATH 등록). `pyinstaller / pywin32 / xlsxwriter / openpyxl`이 없으면 자동 설치.
-- MSI 도구: **WiX Toolset v3.14 (무료, MS-RL 라이선스)**. 처음 한 번 `tools/wix314/`에 자동 다운로드
-  (SHA256 검증). 회사망에서 막히면 https://github.com/wixtoolset/wix3/releases 의
-  `wix314-binaries.zip`을 받아 `tools/wix314/`에 풀어두면 된다. .NET Framework 4 필요 (Windows 10/11 기본 포함).
+- MSI 도구: **WiX Toolset v5.0.2** (무료, MS-RL. v6 이상은 유료 OSMF 라이선스라 사용 안 함).
+  `.NET SDK`가 있으면 `dotnet tool`로 자동 설치/버전 고정 (MHS_Searcher와 같은 방식).
+  .NET SDK가 없으면: `winget install Microsoft.DotNet.SDK.8` 또는 https://dotnet.microsoft.com/download
 - 예전 빌드 오류 재발 방지:
-  - bat 파일은 영문(ASCII)만 사용 → 한글 코드페이지 오류 없음. 한글/공백/네트워크 드라이브 경로에서도 동작
+  - bat 파일은 영문(ASCII)만 사용 → 한글 코드페이지 오류 없음
   - 매번 `dist/…`, `build/`, `.spec` 삭제 + PyInstaller `--clean` → 이전 빌드의 `src/`가 새 코드를 가리는 문제 없음
-  - 빌드 결과 exe, msi가 실제로 생성됐는지 확인 후 성공 표시
-  - MSI 검증(ICE)이 PC 정책 때문에 실패하면 검증 없이 자동 재시도
+  - 프로젝트 폴더에 도구를 내려받지 않음 (바탕화면 "제어된 폴더 액세스"로 인한 `액세스가 거부되었습니다` 방지)
+  - exe가 백신에 훼손됐는지 크기 검사, 바탕화면/OneDrive/한글 경로면 경고 표시
+  - WiX 확장 버전 명시(`/5.0.2`) → 여러 버전이 섞여 생기던 WIX0094 방지
 
-### MSI 설치파일
+### MSI 설치파일 (MHS_Searcher 설치 구성과 동일)
 
-- 더블클릭하면 **관리자 권한 없이** 현재 사용자에게 설치
-  - 설치 위치: `%LOCALAPPDATA%\Programs\Weekly_Report_Automator\` (exe 이름: `Weekly_Report_Automator.exe`)
-  - 시작 메뉴 + 바탕화면 바로가기 생성, 제어판 "앱 및 기능"에서 제거 가능
-- 새 버전 MSI를 설치하면 이전 버전은 자동 제거 후 설치 (같은 버전 재설치도 가능)
+- **한국어 설치 마법사**: 시작 → 안내문 → 설치 경로 선택 → 진행 → 완료(+ 프로그램 실행 체크박스), DL E&C 브랜딩 이미지
+- 기본 설치 위치: `C:\Program Files\Autotools_Mechanical\Weekly Report Automator\` (관리자 권한으로 설치)
+- 시작 메뉴 / 바탕화면 바로가기 `Weekly Report Automator 1.2`, "앱 및 기능"에 버전·문의처 표시
+- 새 버전 MSI를 설치하면 이전 버전은 자동 제거 후 설치. 같은 버전 MSI 재실행 시 [업데이트]/[프로그램 삭제] 선택
+- 설치 폴더의 `src\`는 일반 사용자도 수정 가능 → **패치(`apply_patch_vX.X.bat`)를 설치 폴더에 복사해 관리자 권한 없이 적용**.
+  바로가기가 깨지지 않도록 MSI 설치본에서는 exe·폴더 이름을 바꾸지 않는다.
 - 설정(`Documents\WeeklyReportAutomaker_*.json`)은 설치/제거와 무관하게 유지
-- 패치(`apply_patch_vX.X.bat`)는 설치 폴더에 복사해서 그대로 사용 가능. 이 경우 바로가기가 깨지지 않도록
-  exe·폴더 이름은 바꾸지 않는다.
+- 설치 정의 파일: `installer/wix/Product.wxs`, `Variables.wxi`(제품명·제조사·UpgradeCode), `ui.ko-KR.wxl`(한국어 문구)
 
 ---
 

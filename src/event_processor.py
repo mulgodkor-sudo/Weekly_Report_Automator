@@ -30,14 +30,16 @@ def _norm_subj(s: str) -> str:
 
 def _same_day_merge(events: list[dict]) -> list[dict]:
     """
-    같은날 + 같은제목 + 같은내용 → 시간 합산, 단일 행
+    같은날 + 같은코드(PC/FC) + 같은제목 + 같은내용 → 시간 합산, 단일 행
     같은날 + 같은제목 + 다른내용 → 각각 별도 행
+    같은날 + 같은제목이라도 Project Code / Function Code 가 다르면 별도 행
     """
     bucket: dict[tuple, dict] = {}
     order:  list[tuple]       = []
 
     for e in events:
-        key = (e["date"].date(), e["subject"], e["body"])
+        key = (e["date"].date(), e.get("project_code") or "", e.get("func_code") or "",
+               e["subject"], e["body"])
         if key not in bucket:
             bucket[key] = e.copy()
             order.append(key)

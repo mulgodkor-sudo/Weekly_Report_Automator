@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MHS_Searcher(Equipment Item DB) 설치 구성과 같은 규칙으로 작성 -->
+<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?define ProductName    = "Weekly Report Automator" ?>
+
+  <!-- 설치 경로: C:\Program Files\Autotools_Mechanical\<InstallFolderName>\
+       (dist\ 폴더명·exe 이름의 버전 표기와 무관하게 설치 폴더명은 고정) -->
+  <?define InstallFolderName = "Weekly Report Automator" ?>
+
+  <!-- 제조사: 프로그램 추가/제거·설치 마법사에 표시되는 이름(한글) -->
+  <?define Manufacturer   = "DL이앤씨 기계설계팀" ?>
+  <!-- 레지스트리 vendor 키는 ASCII 로 고정(한글 키 회피) -->
+  <?define RegVendor      = "DLENC" ?>
+
+  <!-- UpgradeCode 는 제품 생애주기 동안 절대 바꾸지 말 것.
+       이 GUID 가 같아야 신버전 MSI 가 구버전을 업그레이드로 인식한다. -->
+  <?define UpgradeCode    = "3E4CD511-D247-48DF-9FA7-1EB0360C3D21" ?>
+
+  <!-- ProductVersion / DisplayVersion 은 build_msi.bat 이 src\config.py 의
+       APP_VERSION 에서 읽어 -d 로 주입한다. 아래는 수동 빌드 시 기본값. -->
+  <?ifndef ProductVersion ?>
+    <?define ProductVersion = "1.20.0.0" ?>
+  <?endif?>
+  <?ifndef DisplayVersion ?>
+    <?define DisplayVersion = $(ProductVersion) ?>
+  <?endif?>
+</Include>

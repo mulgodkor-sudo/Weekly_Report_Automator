@@ -41,6 +41,8 @@ class WeeklyReportApp:
         self.root.geometry(self.WIN_GEO)
         self.root.minsize(*self.WIN_MIN)
         self.root.configure(bg="#F0F2F5")
+        # 화면 콜백에서 난 오류가 --noconsole exe 에서 조용히 묻히지 않도록 표시
+        self.root.report_callback_exception = self._report_callback_exception
 
         self._setup_vars()
         self._build_ui()
@@ -698,6 +700,11 @@ class WeeklyReportApp:
         self._set_status(f"오류  →  {msg[:70]}")
         self._set_warn(f"❌  {title}\n\n{msg}")
         messagebox.showerror(title, msg)
+
+    def _report_callback_exception(self, exc, val, tb):
+        import traceback
+        messagebox.showerror("프로그램 오류",
+                             "".join(traceback.format_exception(exc, val, tb))[-2000:])
 
     def _set_warn(self, text: str):
         self.txt_warn.config(state="normal")

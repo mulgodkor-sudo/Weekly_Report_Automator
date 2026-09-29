@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Weekly Report Automator MSI (WiX v5.0.2 — 무료 MS-RL, v6 이상은 유료 OSMF)
+  MHS_Searcher(Equipment Item DB) installer/wix/Product.wxs 와 같은 구성:
+    한국어 설치 마법사(시작 → 안내문 → 설치 경로 → 진행 → 완료+실행 체크박스),
+    C:\Program Files\Autotools_Mechanical\Weekly Report Automator\,
+    시작 메뉴/바탕화면 바로가기, 자동 업그레이드, 브랜딩 이미지
+  이 프로그램 전용 추가사항:
+    - src\ 폴더는 일반 사용자도 수정 가능 → apply_patch_vX.X.bat 패치를 관리자 권한 없이 적용
+    - msi_installed.txt → 패치가 exe/폴더 이름을 바꾸지 않음(바로가기 유지)
+    - 제거 시 패치로 추가된 src\ 파일과 실행 중 생긴 src\__pycache__ 까지 삭제
+  build_msi.bat 이 -d 로 넘기는 값: PublishDir, ProjectRoot, ExeName,
+                                     ProductVersion, DisplayVersion, LicenseRtf
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <?include Variables.wxi ?>
+
+  <!-- Package Name 에 버전 포함 → 앱 및 기능 목록에 "Weekly Report Automator 1.2" 로 표시.
+       업그레이드 감지는 UpgradeCode 기준이라 이름에 버전이 있어도 정상 업그레이드. -->
+  <Package Name="$(ProductName) $(var.DisplayVersion)" Version="$(var.ProductVersion)"
+           Manufacturer="$(Manufacturer)" UpgradeCode="$(UpgradeCode)"
+           Language="1042" Codepage="949" Scope="perMachine">
+
+    <!-- 이전 버전 자동 제거 후 설치. 같은 버전 재빌드/재설치도 허용. -->
+    <MajorUpgrade
+        AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="이미 더 최신 버전의 [ProductName] 이(가) 설치되어 있습니다." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ARP (설정 > 앱 > 설치된 앱) 표시 -->
+    <Icon Id="AppIcon.ico" SourceFile="$(var.ProjectRoot)\src\assets\Schedule_Ico.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPCONTACT"     Value="이수신 차장 (사번 4762)" />
+    <Property Id="ARPHELPLINK"    Value="mailto:soosin.lee@dlenc.co.kr" />
+    <Property Id="ARPCOMMENTS"    Value="DL이앤씨 기계설계팀 Autotools" />
+    <!-- 단일 Feature → '구성 변경' 비활성. 재실행 시 [업데이트]/[프로그램 삭제]만 표시 -->
+    <Property Id="ARPNOMODIFY"    Value="1" />
+
+    <!-- 설치/제거 마법사 UI (한국어: -culture ko-KR + ui.ko-KR.wxl) -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <?ifndef LicenseRtf ?>
+      <?define LicenseRtf = $(var.ProjectRoot)\installer\wix\License.rtf ?>
+    <?endif?>
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.ProjectRoot)\installer\wix\WixUIDialogBmp.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.ProjectRoot)\installer\wix\WixUIBannerBmp.bmp" />
+
+    <!-- 완료 화면: '[ProductName] 실행' 체크박스 (기본 체크) — Util 확장 WixShellExec -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="[ProductName] 실행" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]$(var.ExeName)" />
+    <CustomAction Id="LaunchApplication"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+                  DllEntry="WixShellExec" Impersonate="yes" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+
+    <Property Id="MSIUSEREALADMINDETECTION" Value="1" />
+
+    <!-- ================================================================
+         설치 폴더 구조
+           C:\Program Files\Autotools_Mechanical\Weekly Report Automator\
+             Weekly_Report_Automator_V<ver>.exe, _internal\ ...
+             src\            ← 패치 폴더 (사용자 수정 가능)
+         ================================================================ -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="AUTOTOOLSROOT" Name="Autotools_Mechanical">
+        <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)">
+          <Directory Id="SRCDIR" Name="src">
+            <Directory Id="SRCPYCACHEDIR" Name="__pycache__" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppShortcutDir" Name="$(ProductName)" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- PublishDir 의 모든 파일(src\ 제외)을 INSTALLFOLDER 로 자동 수집 -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\src\**" />
+      </Files>
+      <Component Id="MsiMarker">
+        <File Id="MsiMarkerFile" Source="$(var.ProjectRoot)\installer\msi_installed.txt" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- 패치 폴더 src\ : 파일 수집 + 사용자 수정 권한 + 제거 시 정리 -->
+    <ComponentGroup Id="SrcFiles" Directory="SRCDIR">
+      <Files Include="$(var.PublishDir)\src\**" />
+      <Component Id="SrcFolderAccess" Guid="*">
+        <CreateFolder>
+          <!-- SYSTEM/Administrators 전체, Users 수정(읽기·쓰기·삭제) 권한. 하위 파일·폴더에 상속 -->
+          <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1301bf;;;BU)" />
+        </CreateFolder>
+        <!-- 패치로 추가된 파일까지 제거 -->
+        <RemoveFile Id="RemoveSrcFiles" Name="*" On="uninstall" />
+        <RegistryValue Root="HKMU"
+                       Key="Software\$(RegVendor)\$(var.InstallFolderName)"
+                       Name="src_folder" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="SrcCacheCleanup" Directory="SRCPYCACHEDIR">
+      <Component Id="SrcPycacheCleanup" Guid="*">
+        <RemoveFile Id="RemovePycFiles" Name="*" On="uninstall" />
+        <RemoveFolder Id="RemovePycFolder" On="uninstall" />
+        <RegistryValue Root="HKMU"
+                       Key="Software\$(RegVendor)\$(var.InstallFolderName)"
+                       Name="src_pycache" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- 시작 메뉴 바로가기 -->
+    <ComponentGroup Id="AppShortcuts" Directory="AppShortcutDir">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="AppStartMenuShortcut"
+                  Name="$(ProductName) $(var.DisplayVersion)"
+                  Target="[INSTALLFOLDER]$(var.ExeName)"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico" />
+        <RemoveFolder Id="RemoveAppShortcutDir" On="uninstall" />
+        <RegistryValue Root="HKMU"
+                       Key="Software\$(RegVendor)\$(var.InstallFolderName)"
+                       Name="installed" Type="integer" Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- 바탕화면 바로가기 -->
+    <ComponentGroup Id="DesktopShortcut" Directory="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut Id="AppDesktopShortcut"
+                  Name="$(ProductName) $(var.DisplayVersion)"
+                  Target="[INSTALLFOLDER]$(var.ExeName)"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico" />
+        <RegistryValue Root="HKMU"
+                       Key="Software\$(RegVendor)\$(var.InstallFolderName)"
+                       Name="desktop_shortcut" Type="integer" Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Complete" Title="$(ProductName)" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="SrcFiles" />
+      <ComponentGroupRef Id="SrcCacheCleanup" />
+      <ComponentGroupRef Id="AppShortcuts" />
+      <ComponentGroupRef Id="DesktopShortcut" />
+    </Feature>
+  </Package>
+</Wix>
