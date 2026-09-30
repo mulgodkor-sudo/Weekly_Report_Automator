@@ -35,8 +35,8 @@
     <Property Id="ARPCONTACT"     Value="이수신 차장 (사번 4762)" />
     <Property Id="ARPHELPLINK"    Value="mailto:soosin.lee@dlenc.co.kr" />
     <Property Id="ARPCOMMENTS"    Value="DL이앤씨 기계설계팀 Autotools" />
-    <!-- 단일 Feature → '구성 변경' 비활성. 재실행 시 [업데이트]/[프로그램 삭제]만 표시 -->
-    <Property Id="ARPNOMODIFY"    Value="1" />
+    <!-- '구성 변경' 비활성(ARPNOMODIFY=1)은 WixUI_InstallDir 이 이미 정의한다.
+         여기서 다시 정의하면 WIX0091 (Duplicate Property 'ARPNOMODIFY') 빌드 오류. -->
 
     <!-- 설치/제거 마법사 UI (한국어: -culture ko-KR + ui.ko-KR.wxl) -->
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
