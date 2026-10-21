@@ -17,8 +17,9 @@ Weekly_Report_Automator/
 │   └── wix/                 ← WiX v5 설치 정의 (Product.wxs, Variables.wxi, ui.ko-KR.wxl, 브랜딩 이미지)
 ├── patches/
 │   ├── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
-│   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치
-│   ├── make_patch.py         ← 패치 .bat 생성기
+│   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치 (onedir 폴더용)
+│   ├── apply_patch_v1.22.bat ← MSI 설치본 → v1.22 패치 (아무 폴더에서 실행, 설치 경로 자동 탐색)
+│   ├── make_patch.py         ← 패치 .bat 생성기 (`msi` 모드 포함)
 │   └── README.md             ← 패치 안내
 └── src/
     ├── app.py               ← 메인 UI (tkinter)
