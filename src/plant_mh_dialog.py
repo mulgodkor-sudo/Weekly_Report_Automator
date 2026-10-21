@@ -22,6 +22,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 import plant_mh as pm
+from outlook_reader import FLEX_STARTS, hm_label
+
+# 시차출퇴근 선택지: (표시, 출근시각) — None = 자동(그날 일정으로 판단)
+FLEX_AUTO    = "자동 (일정 기준)"
+FLEX_CHOICES = [(FLEX_AUTO, None)] + [
+    (f"{h:02d}:{m:02d}~{h + 9:02d}:{m:02d}", (h, m)) for h, m in FLEX_STARTS]
+C_MANUAL     = "#C55A11"   # 날짜별로 직접 바꾼 출근시각 표시
 
 FONT      = ("맑은 고딕", 9)
 FONT_B    = ("맑은 고딕", 9, "bold")
@@ -43,7 +50,15 @@ class PlantMHDialog(tk.Toplevel):
         self.v_end   = tk.StringVar(value=end)
         self._items: list[dict] = []
         self._dates: list = []
-        self._starts: dict = {}          # {날짜: 출근시각} 시차출퇴근 자동 판단 결과
+        self._starts: dict = {}          # {날짜: 출근시각} 시차출퇴근 판단 결과
+        self._events: list | None = None  # 마지막으로 불러온 아웃룩 일정 (재계산용)
+        self._day_override: dict = {}    # {날짜: (h, m)} 날짜별로 직접 고른 출근시각
+
+        # 시차출퇴근 기본 선택값은 사용자별로 기억 (문서 폴더 설정)
+        from config import load_config
+        saved = load_config().get("mh_flex_start", "auto")
+        label = next((l for l, hm in FLEX_CHOICES if hm_label(hm) == saved), FLEX_AUTO)
+        self.v_flex  = tk.StringVar(value=label)
 
         self._build()
         self._load()
@@ -88,6 +103,18 @@ class PlantMHDialog(tk.Toplevel):
                        "/ 시작일을 바꿔도 종료일은 유지 / 종료일이 속한 주의 일요일까지 표시",
                   foreground="gray", font=("맑은 고딕", 8)
                   ).grid(row=1, column=0, columnspan=6, sticky="w", padx=6)
+
+        # ── 시차출퇴근 선택 ──
+        fr_f = ttk.Frame(fr_d)
+        fr_f.grid(row=2, column=0, columnspan=6, sticky="w", padx=6, pady=(4, 0))
+        ttk.Label(fr_f, text="시차출퇴근 :").pack(side="left")
+        cb = ttk.Combobox(fr_f, textvariable=self.v_flex, state="readonly", width=17,
+                          values=[l for l, _ in FLEX_CHOICES], font=("맑은 고딕", 10))
+        cb.pack(side="left", padx=6)
+        cb.bind("<<ComboboxSelected>>", self._on_flex_change)
+        ttk.Label(fr_f,
+                  text="자동 = 그날 일정으로 출근시각 판단  |  표의 날짜 아래 출근시각을 클릭하면 그날만 변경",
+                  foreground="gray", font=("맑은 고딕", 8)).pack(side="left", padx=8)
 
         # ── 표 영역: 왼쪽 고정 + 오른쪽 가로 스크롤 ─────────────────
         area = tk.Frame(self, bg="#F0F2F5")
@@ -179,6 +206,7 @@ class PlantMHDialog(tk.Toplevel):
         self.btn_excel.config(state="disabled")
         self.progress.start()
         self.lbl_stat.config(text="아웃룩에서 일정을 불러오는 중...")
+        fixed, per_day = self._flex_fixed(), dict(self._day_override)   # 화면 값은 메인 스레드에서 읽음
 
         def task():
             _com_ok = False
@@ -187,12 +215,10 @@ class PlantMHDialog(tk.Toplevel):
             except Exception:
                 pass
             try:
-                from outlook_reader  import get_events
-                from event_processor import process_this_week, build_rows
-                rows  = build_rows(process_this_week(get_events(start, show_end)), [])
-                items  = pm.aggregate(rows)
-                starts = pm.day_starts(rows)
-                self.after(0, lambda: self._on_ok(items, dates, starts))
+                from outlook_reader import get_events
+                events = get_events(start, show_end)
+                items, starts = self._compute(events, fixed, per_day)
+                self.after(0, lambda: self._on_ok(items, dates, starts, events))
             except Exception as e:
                 msg = f"{e}\n\n{traceback.format_exc()}"
                 self.after(0, lambda: self._on_err(msg))
@@ -203,12 +229,67 @@ class PlantMHDialog(tk.Toplevel):
 
         threading.Thread(target=task, daemon=True).start()
 
-    def _on_ok(self, items, dates, starts=None):
+    # ── 시차출퇴근 ────────────────────────────────────────────────────
+    def _flex_fixed(self):
+        """선택 상자 값 → 출근시각 (h, m), 자동이면 None"""
+        return dict(FLEX_CHOICES).get(self.v_flex.get())
+
+    @staticmethod
+    def _compute(events, fixed, per_day):
+        """아웃룩 일정 → (표 항목, {날짜: 출근시각}) — 시차출퇴근 설정 반영"""
+        from outlook_reader  import assign_st_ot
+        from event_processor import process_this_week, build_rows
+        assign_st_ot(events, fixed=fixed, per_day=per_day)
+        rows = build_rows(process_this_week(events), [])
+        return pm.aggregate(rows), pm.day_starts(rows)
+
+    def _recalc(self):
+        """아웃룩을 다시 읽지 않고 시차출퇴근 설정만 바꿔 다시 계산"""
+        if self._events is None:
+            return
+        try:
+            items, starts = self._compute(self._events, self._flex_fixed(),
+                                          dict(self._day_override))
+        except Exception as e:
+            self._on_err(f"재계산 오류: {e}\n\n{traceback.format_exc()}")
+            return
+        self._on_ok(items, self._dates, starts, self._events)
+
+    def _on_flex_change(self, _event=None):
+        from config import load_config, save_config
+        cfg = load_config()
+        cfg["mh_flex_start"] = hm_label(self._flex_fixed()) or "auto"
+        save_config(cfg)
+        self._day_override.clear()       # 전체 설정을 바꾸면 날짜별 변경은 초기화
+        self._recalc()
+
+    def _flex_menu(self, event, d):
+        """날짜 아래 출근시각 클릭 → 그날만 출근시각 변경"""
+        m = tk.Menu(self, tearoff=0)
+        m.add_command(label=f"{d.month}/{d.day} 출근시각", state="disabled")
+        m.add_separator()
+        m.add_command(label=f"기본 설정 따름 ({self.v_flex.get()})",
+                      command=lambda: self._set_day(d, None))
+        for label, hm in FLEX_CHOICES[1:]:
+            mark = "  ✔" if self._day_override.get(d) == hm else ""
+            m.add_command(label=label + mark, command=lambda hm=hm: self._set_day(d, hm))
+        m.tk_popup(event.x_root, event.y_root)
+
+    def _set_day(self, d, hm):
+        if hm is None:
+            self._day_override.pop(d, None)
+        else:
+            self._day_override[d] = hm
+        self._recalc()
+
+    def _on_ok(self, items, dates, starts=None, events=None):
         if not self.winfo_exists():
             return
         self.progress.stop()
         self.btn_load.config(state="normal")
         self._items, self._dates, self._starts = items, dates, starts or {}
+        if events is not None:
+            self._events = events
         try:
             self._render()
         except Exception as e:
@@ -232,7 +313,8 @@ class PlantMHDialog(tk.Toplevel):
             fc_note = "   ⚠ Description 없음 - " + (fc_why or "FC 엑셀 파일 경로를 설정하세요")[:70]
         self.lbl_stat.config(
             text=f"{d0.month}/{d0.day} ~ {d1.month}/{d1.day}   |   "
-                 f"ST {pm.fmt_h(st)}H  /  OT {pm.fmt_h(ot)}H"
+                 f"ST {pm.fmt_h(st)}H  /  OT {pm.fmt_h(ot)}H   |   시차출퇴근: {self.v_flex.get()}"
+                 + (f" (날짜별 변경 {len(self._day_override)}일)" if self._day_override else "")
                  + ("" if items else "   (해당 기간 [실적] 없음)") + fc_note,
             fg="#C00000" if fc_note else "#1F4E79")
         self.btn_excel.config(state="normal" if items else "disabled")
@@ -295,8 +377,13 @@ class PlantMHDialog(tk.Toplevel):
             self._cell(R, 2, 2 * i, str(d.day),             bg=H, fg=fg, bold=True, cs=2)
             s = self._starts.get(d, "")
             flex = bool(s) and s != "08:30"
-            self._cell(R, 3, 2 * i, s, bg=H, fg=pm.C_FLEX if flex else "#595959",
-                       bold=flex, cs=2)
+            manual = d in self._day_override
+            lbl = self._cell(R, 3, 2 * i, s, bg=H,
+                             fg=C_MANUAL if manual else (pm.C_FLEX if flex else "#595959"),
+                             bold=flex or manual, cs=2)
+            if d.weekday() < 5:          # 평일만 출근시각 변경 가능
+                lbl.config(cursor="hand2")
+                lbl.bind("<Button-1>", lambda e, d=d: self._flex_menu(e, d))
             self._cell(R, 4, 2 * i,     "ST", bg=H, fg=fg, bold=True)
             self._cell(R, 4, 2 * i + 1, "OT", bg=H, fg=fg, bold=True)
         c_st = 2 * len(dates)
