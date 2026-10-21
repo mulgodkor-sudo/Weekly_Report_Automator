@@ -1,4 +1,51 @@
-# 패치 안내 — apply_patch_v1.22.bat (MSI 설치본용, 최신)
+# 패치 / 자동 업데이트 안내 (v1.23~, MSI 설치본)
+
+## 배포 폴더 (팀 공용 ECM)
+
+```
+X:\부서 문서함\기계팀\기계설계\1_부서 업무\3-9 기술자료\13. Outlook_Excel_Extractor_Mechanical\WRA_Patch
+```
+
+- 패치 파일명 규칙: **`WRA_Patch_v<버전>.bat`** (예: `WRA_Patch_v1.23.bat`, `WRA_Patch_v1.3.bat`)
+- 배포 담당자는 `python patches/make_patch.py msi` 로 만든 `patches/WRA_Patch_v<버전>.bat` **한 파일만** 위 폴더에 올린다
+  (예전 버전 파일은 남겨 둬도 된다 — 가장 높은 버전만 사용)
+
+## 자동 업데이트 (v1.23 부터)
+
+1. 프로그램을 켜면 배포 폴더에서 규칙에 맞는 파일 중 **가장 높은 버전**을 찾는다 (백그라운드, ECM 미연결 시 조용히 넘어감)
+2. 현재 버전보다 높으면 `업데이트 알림` 창에 **변경 내용**을 보여주고 묻는다
+3. **[예]** → 프로그램이 닫히고 패치 창이 열려 프로그램 종료를 기다린 뒤 적용·검증 → **프로그램 자동 재실행**
+   (패치 창은 10초 후 자동으로 닫힘) / **[아니오]** → 다음 실행 때 다시 묻는다
+- MSI 로 설치한 프로그램(설치 폴더에 `msi_installed.txt`)에서만 동작
+- 관리자 권한 필요 없음 (MSI 설치 시 `src\` 폴더에 사용자 수정 권한 부여)
+
+## 처음 한 번: v1.23 패치 직접 실행
+
+자동 업데이트 기능은 v1.23 에 들어 있으므로, **MSI v1.2 ~ v1.22 사용자는 `WRA_Patch_v1.23.bat` 을 한 번 직접 실행**한다
+(아무 폴더에서나 더블클릭 — 설치 경로 `C:\Program Files\Autotools_Mechanical\Weekly Report Automator` 를 스스로 찾음).
+그다음 버전부터는 프로그램이 알아서 확인한다. MSI 재설치는 필요 없다.
+
+| 상황 | 화면 |
+|------|------|
+| 성공 | `패치가 성공적으로 완료되었습니다. (v1.23, 파일 16개 교체·검증 완료)` + 패치 내용 목록 |
+| 설치 경로에 프로그램 없음 | `[오류] 다음 경로에서 Weekly Report Automator 설치 파일을 찾을 수 없습니다:` + 확인한 경로 |
+| 더 높은 버전 설치됨 | `[오류] 이미 더 높은 버전(vX.X)이 설치되어 있습니다.` (적용 안 함) |
+| 쓰기 권한 없음 | `[오류] … 권한이 없습니다` → 패치 파일 우클릭 → **관리자 권한으로 실행** |
+
+## 새 버전 패치 만들기 (개발자용)
+
+1. `src/config.py` 의 `APP_VERSION` 올리기 (예: `"1.24"`)
+2. `patches/notes_v1.24.txt` 에 패치 내용 작성 (UTF-8, 업데이트 알림 창과 패치 창에 그대로 표시)
+3. `python patches/make_patch.py msi` → `patches/WRA_Patch_v1.24.bat` 생성 → 배포 폴더에 올리기
+
+- `.bat` 은 ASCII 실행기, 실제 작업·한글 안내는 함께 넣은 PowerShell 스크립트(`patches/msi_patch_template.ps1`)가 처리
+- 패치 내용은 `.bat` 의 `REM WRA_NOTES_B64=` 줄에도 들어 있어, 프로그램이 업데이트 알림 창에 보여준다
+- 주의: 패치 코드는 **이미 설치된 예전 exe 위에서 실행**되므로, 새 코드에서 exe 에 번들되지 않았을 수 있는
+  파이썬 모듈(예: `tkinter.font`, `subprocess`)을 새로 쓰면 안 된다. exe 자체가 바뀌어야 하면 새 MSI 로 배포.
+
+---
+
+# (이전) 패치 안내 — apply_patch_v1.22.bat (MSI 설치본용, WRA_Patch_v1.23 으로 대체)
 
 > 대상: **MSI로 설치한 프로그램** (v1.2 이상, v1.21 포함) → 패치 후 **v1.22**
 > 설치 경로: `C:\Program Files\Autotools_Mechanical\Weekly Report Automator\` (MSI 고정 경로)

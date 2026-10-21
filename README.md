@@ -1,4 +1,4 @@
-# 📊 Weekly Report Automator  `Ver.1.22`
+# 📊 Weekly Report Automator  `Ver.1.23`
 
 > DL이앤씨 플랜트본부 기계설계팀 — 아웃룩 캘린더 기반 주간보고서 자동 생성 도구
 
@@ -18,8 +18,10 @@ Weekly_Report_Automator/
 ├── patches/
 │   ├── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
 │   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치 (onedir 폴더용)
-│   ├── apply_patch_v1.22.bat ← MSI 설치본 → v1.22 패치 (아무 폴더에서 실행, 설치 경로 자동 탐색)
-│   ├── make_patch.py         ← 패치 .bat 생성기 (`msi` 모드 포함)
+│   ├── apply_patch_v1.22.bat ← MSI 설치본 → v1.22 패치 (이전 방식)
+│   ├── WRA_Patch_v1.23.bat   ← MSI 설치본 → v1.23 패치 + 자동 업데이트 (ECM WRA_Patch 폴더 배포)
+│   ├── notes_v<버전>.txt     ← 패치 내용 (업데이트 알림 창·패치 창에 표시)
+│   ├── make_patch.py         ← 패치 .bat 생성기 (`msi` 모드 → WRA_Patch_v<버전>.bat)
 │   └── README.md             ← 패치 안내
 └── src/
     ├── app.py               ← 메인 UI (tkinter)
@@ -34,6 +36,7 @@ Weekly_Report_Automator/
     ├── plant_mh_dialog.py   ← Plant M/H 입력 확인 UI
     ├── monthly_processor.py ← 월간업무정리 처리 로직
     ├── monthly_dialog.py    ← 월간업무정리 UI + Excel 저장
+    ├── updater.py           ← 자동 업데이트 (ECM WRA_Patch 폴더 확인 → 패치 실행)
     ├── config.json          ← 초기 설정값
     ├── overrides.json       ← 초기 override 데이터
     └── assets/

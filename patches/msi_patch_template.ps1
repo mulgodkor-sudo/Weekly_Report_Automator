@@ -11,7 +11,9 @@
 #  .bat 이 마지막에 "아무 키나 누르면" 창을 닫는다.
 # ============================================================================
 param(
-    [Parameter(Mandatory = $true)] [string] $PayloadDir
+    [Parameter(Mandatory = $true)] [string] $PayloadDir,
+    [switch] $Auto,                 # 프로그램의 자동 업데이트로 실행됨 (끝나면 프로그램 재실행)
+    [int]    $WaitPid = 0           # 자동 업데이트: 종료를 기다릴 프로그램 프로세스 ID
 )
 
 $PatchVersion = '@VERSION@'
@@ -52,6 +54,7 @@ function Stop-WithError([string[]] $lines, [int] $code) {
     foreach ($l in $lines) { Write-Line $l 'Red' }
     Write-Line '============================================================' 'Red'
     Write-Line
+    if ($Auto) { Write-Line '업데이트하지 못했습니다. 프로그램을 다시 실행하면 기존 버전으로 동작합니다.' 'Yellow' }
     Write-Line '창을 닫으려면 아무 키나 누르세요...'
     exit $code
 }
@@ -97,6 +100,12 @@ if ($installed) {
     }
 } else {
     Write-Line "설치 버전 : (확인 불가)  →  패치 버전 : v$PatchVersion"
+}
+
+# 자동 업데이트: 프로그램이 완전히 종료될 때까지 대기 (최대 30초)
+if ($Auto -and $WaitPid -gt 0) {
+    Write-Line '프로그램 종료를 기다리는 중...'
+    try { Wait-Process -Id $WaitPid -Timeout 30 -ErrorAction SilentlyContinue } catch { }
 }
 
 $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
@@ -153,6 +162,21 @@ Write-Line
 Write-Line '패치 내용' 'White'
 foreach ($l in ($PatchNotes -split "`r?`n")) { Write-Line "  $l" }
 Write-Line
+if ($Auto) {
+    # 자동 업데이트: 프로그램 다시 실행
+    $exe = Get-ChildItem -LiteralPath $installDir -Filter '*.exe' -ErrorAction SilentlyContinue |
+           Select-Object -First 1
+    $started = $false
+    if ($exe) {
+        try { Start-Process -FilePath $exe.FullName -WorkingDirectory $installDir; $started = $true } catch { }
+    }
+    if ($started) { Write-Line '※ 프로그램을 새 버전으로 다시 실행했습니다.' 'Yellow' }
+    else          { Write-Line '※ 프로그램을 다시 실행하지 못했습니다. 바로가기로 직접 실행하세요.' 'Yellow' }
+    Write-Line '※ 시작 메뉴 / 앱 목록의 버전 표시는 다음에 MSI로 설치할 때 바뀝니다.' 'DarkGray'
+    Write-Line
+    Write-Line '이 창은 잠시 후 자동으로 닫힙니다. (바로 닫으려면 아무 키나 누르세요)'
+    exit 0
+}
 Write-Line '※ 프로그램을 다시 시작하면 적용됩니다. (프로그램 화면에 새 버전이 표시됩니다)' 'Yellow'
 Write-Line '※ 시작 메뉴 / 앱 목록의 버전 표시는 다음에 MSI로 설치할 때 바뀝니다.' 'DarkGray'
 Write-Line
