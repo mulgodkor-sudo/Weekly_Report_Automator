@@ -108,17 +108,7 @@ class WeeklyReportApp:
         except Exception as e:
             self._set_status(f"FC 로드 실패: {e}")
             return
-        self._sync_fc_path()
         self._set_status(self._fc_status_text())
-
-    def _sync_fc_path(self):
-        """드라이브 문자를 자동 보정해 읽은 경우, 보정된 경로를 설정에 저장"""
-        from config import get_fc_path, get_fc_status
-        path = get_fc_path()
-        if get_fc_status()[0] == "excel" and path and path != self.v_fc_path.get().strip():
-            self.v_fc_path.set(path)
-            self._cfg["func_code_excel_path"] = path
-            save_config(self._cfg)
 
     def _fc_status_text(self) -> str:
         """상태바용 FC 로드 결과 문구"""
@@ -523,9 +513,7 @@ class WeeklyReportApp:
                 f"{why}\n\n{fallback}\n"
                 "엑셀 파일 첫 15행 안에 '구분 / CODE / KPI / 업무명' 머리글이 있는지 확인하세요.")
             return
-        from config import get_fc_path
-        self.v_fc_path.set(get_fc_path())          # 드라이브 문자 자동 보정 반영
-        self._cfg["func_code_excel_path"] = get_fc_path()
+        self._cfg["func_code_excel_path"] = path
         save_config(self._cfg)
         self._set_status(self._fc_status_text().replace("로드 완료", "재로드 완료"))
 

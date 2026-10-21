@@ -88,7 +88,7 @@ _FC: dict[str, dict] = {}
 #   "none"
 _FC_SOURCE: str = "none"
 _FC_MESSAGE: str = ""        # 엑셀을 못 쓴 이유 (화면 안내용)
-_FC_PATH: str = ""           # 실제로 읽은 엑셀 경로 (드라이브 문자 자동 보정 결과)
+_FC_PATH: str = ""           # 마지막으로 읽으려 한 엑셀 경로
 _FC_CACHE_INFO: str = ""     # 사본 기준 시각 안내 ("2026-10-20 09:12 ECM 기준")
 
 # 마지막으로 ECM 엑셀에서 읽은 내용 사본 (문서 폴더, 사용자별)
@@ -175,27 +175,6 @@ def load_fc_from_excel(excel_path: str) -> dict[str, dict]:
         wb.close()
     return {}
 
-def resolve_fc_path(path: str) -> str:
-    """
-    FC 엑셀 경로 확인. 없으면 같은 경로를 다른 드라이브 문자로 찾아본다.
-    (ECM 네트워크 드라이브를 사람마다 X:, Y: 등 다른 문자로 연결한 경우 대응)
-    """
-    if not path or os.path.exists(path):
-        return path
-    m = re.match(r"^([A-Za-z]):[\\/](.*)$", path)
-    if m:
-        rest = m.group(2)
-        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
-            if letter == m.group(1).upper():
-                continue
-            cand = f"{letter}:/{rest}"
-            try:
-                if os.path.exists(cand):
-                    return cand
-            except OSError:
-                continue
-    return path
-
 def _save_fc_cache(fc: dict[str, dict], path: str) -> None:
     from datetime import datetime
     try:
@@ -252,7 +231,6 @@ def reload_fc(excel_path: str = "") -> int:
     if not excel_path:
         cfg = load_config()
         excel_path = cfg.get("func_code_excel_path", "")
-    excel_path = resolve_fc_path(excel_path)
     _FC_PATH, _FC_CACHE_INFO = excel_path, ""
 
     fc, msg = {}, ""
@@ -291,7 +269,7 @@ def get_fc_status() -> tuple[str, str]:
     return _FC_SOURCE, _FC_MESSAGE
 
 def get_fc_path() -> str:
-    """실제로 사용한 FC 엑셀 경로 (드라이브 문자 자동 보정 결과)"""
+    """마지막으로 읽으려 한 FC 엑셀 경로"""
     return _FC_PATH
 
 def get_fc_cache_info() -> str:
