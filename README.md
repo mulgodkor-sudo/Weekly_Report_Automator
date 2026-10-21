@@ -18,7 +18,6 @@ Weekly_Report_Automator/
 ├── patches/
 │   ├── apply_patch_v1.11.bat ← v1.1 → v1.11 패치 (exe 옆 src/ 교체)
 │   ├── apply_patch_v1.2.bat  ← v1.1 / v1.11 → v1.2 패치 (onedir 폴더용)
-│   ├── apply_patch_v1.22.bat ← MSI 설치본 → v1.22 패치 (이전 방식)
 │   ├── WRA_Patch_v1.23.bat   ← MSI 설치본 → v1.23 패치 + 자동 업데이트 (ECM WRA_Patch 폴더 배포)
 │   ├── notes_v<버전>.txt     ← 패치 내용 (업데이트 알림 창·패치 창에 표시)
 │   ├── make_patch.py         ← 패치 .bat 생성기 (`msi` 모드 → WRA_Patch_v<버전>.bat)
