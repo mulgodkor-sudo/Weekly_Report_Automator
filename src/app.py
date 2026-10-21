@@ -763,18 +763,38 @@ class WeeklyReportApp:
         msg = (f"새 버전 v{info['version']} 이(가) 있습니다.  (현재 v{APP_VERSION})\n\n"
                + (f"[변경 내용]\n{notes}\n\n" if notes else "")
                + "지금 업데이트할까요?\n"
-               "[예] 를 누르면 프로그램이 닫히고, 업데이트 후 자동으로 다시 실행됩니다.")
+               "[예] 를 누르면 업데이트 후 프로그램이 다시 시작됩니다. (몇 초 걸립니다)")
         if not messagebox.askyesno("업데이트 알림", msg):
             self._set_status(f"새 버전 v{info['version']} 이(가) 있습니다 — 다음 실행 때 다시 알려드립니다")
             return
+        self._set_status(f"v{info['version']} 업데이트 중...")
+        self.root.update_idletasks()
         try:
-            updater.launch(info["path"])
+            # 스크립트 실행 없이 프로그램이 직접 패치 데이터를 읽어 src\ 교체
+            # (회사 소프트웨어 제한 정책이 %TEMP% 의 .ps1/.bat 실행을 막음)
+            n = updater.apply(info["path"])
+        except PermissionError:
+            messagebox.showerror(
+                "업데이트 오류",
+                "설치 폴더에 파일을 쓸 수 없습니다 (권한 없음).\n\n"
+                f"다음 패치 파일을 마우스 오른쪽 클릭 → [관리자 권한으로 실행] 하세요:\n{info['path']}")
+            self._set_status("업데이트 실패 — 기존 버전으로 계속 사용합니다")
+            return
         except Exception as e:
             messagebox.showerror("업데이트 오류",
-                                 f"업데이트를 시작하지 못했습니다:\n{e}\n\n"
-                                 f"다음 파일을 직접 실행하세요:\n{info['path']}")
+                                 f"업데이트하지 못했습니다:\n{e}\n\n"
+                                 "기존 버전으로 계속 사용합니다.\n"
+                                 f"문제가 계속되면 다음 패치 파일을 직접 실행하세요:\n{info['path']}")
+            self._set_status("업데이트 실패 — 기존 버전으로 계속 사용합니다")
             return
-        self.root.destroy()            # 패치가 프로그램 종료를 기다렸다가 적용 후 다시 실행
+        messagebox.showinfo("업데이트 완료",
+                            f"v{info['version']} 업데이트가 완료되었습니다. (파일 {n}개 교체·검증)\n\n"
+                            "[확인] 을 누르면 프로그램이 다시 시작됩니다.")
+        try:
+            updater.restart()
+        except Exception:
+            messagebox.showinfo("다시 시작", "프로그램을 직접 다시 실행해 주세요.")
+        self.root.destroy()
 
     def _report_callback_exception(self, exc, val, tb):
         import traceback

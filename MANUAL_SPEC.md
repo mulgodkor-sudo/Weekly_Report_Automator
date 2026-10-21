@@ -601,10 +601,12 @@ error_message: '목록에서 선택하세요'
   (설정 `update_folder` 로 변경 가능)
 - 파일명 규칙 `WRA_Patch_v<버전>.bat` (정규식 `^WRA_Patch_v(\d+)\.(\d{1,2})\.bat$`, 대소문자 무시), 가장 높은 버전 사용
 - 프로그램 시작 1.5초 후 백그라운드 확인 → 새 버전이면 `업데이트 알림` 창 (변경 내용 = bat 의 `REM WRA_NOTES_B64=` 줄)
-- [예] → 패치를 `%TEMP%\wra_update_<PID>` 로 복사, `WRA_Patch_vX.X.bat auto <PID>` 로 새 창 실행 → 프로그램 종료
-  → 패치가 종료 대기(최대 30초) → `src\` 교체·SHA256 검증 → exe 재실행 → 10초 후 창 닫힘
+- [예] → 프로그램이 패치 .bat 의 `REM WRA_PAYLOAD_BEGIN`~`END` 구간(base64 zip)을 직접 읽어 `src\` 교체
+  (`*.wra_new` 로 먼저 쓴 뒤 바꿔치기) → 내용 비교 검증 → `__pycache__` 정리 → `업데이트 완료` 안내 → exe 재실행
+- 스크립트(.ps1/.bat) 실행 없음 — 회사 소프트웨어 제한 정책이 `%TEMP%` 의 스크립트 실행을 막음
+- 수동 실행용 .bat 도 .ps1 파일 없이 bat 명령(xcopy/fc)으로 처리, PowerShell 은 한 줄 명령(데이터 풀기·한글 안내)만 사용
 - MSI 설치본(exe 옆 `msi_installed.txt`)에서만 동작, ECM 미연결·오류 시 조용히 넘어감
-- `updater.py` 는 예전 exe 위에서도 돌아야 하므로 `os / sys / re / binascii` 만 사용
+- `updater.py` 는 예전 exe 위에서도 돌아야 하므로 `os / sys / re / binascii / io / zipfile` 만 사용
 
 ---
 

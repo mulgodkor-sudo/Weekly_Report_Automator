@@ -169,69 +169,145 @@ def build(new: str, olds: list[str]) -> Path:
 
 
 # ════════════════════════════════════════════════════════════════════
-# MSI 설치본용 패치 (v1.22~)
+# MSI 설치본용 패치 (v1.23~)
 #   python patches/make_patch.py msi
 #   → patches/WRA_Patch_v<APP_VERSION>.bat  (파일명 규칙 — 이 파일만 ECM WRA_Patch 폴더에 올리면
 #     프로그램이 시작할 때 찾아서 업데이트를 묻는다, src/updater.py)
-#   - 아무 폴더에서나 실행 → MSI 고정 설치 경로
-#     (C:\Program Files\Autotools_Mechanical\Weekly Report Automator) 를 찾아 src\ 교체
+#
+#   회사 보안 정책(소프트웨어 제한 정책)이 %TEMP% 의 스크립트 파일(.ps1/.bat) 실행을 막으므로
+#   - 수동 실행: .bat 이 직접 처리 (xcopy / fc). .ps1 파일은 만들지도 실행하지도 않음.
+#     PowerShell 은 한 줄 명령(-Command)으로 패치 데이터 풀기와 한글 안내 출력에만 사용
+#     (bat 에 한글을 직접 넣으면 CP949 코드페이지 문제로 깨지므로 한글은 base64 로 넣어 출력)
+#   - 자동 업데이트: 설치된 프로그램이 이 .bat 의 패치 데이터를 직접 읽어 src\ 교체 (스크립트 실행 없음)
 #   - 버전은 src/config.py APP_VERSION, 패치 내용은 patches/notes_v<버전>.txt (UTF-8)
-#   - .bat 은 ASCII 실행기, 실제 작업과 한글 안내는 함께 넣은 PowerShell 스크립트가 처리
-#     (bat 에 한글을 넣으면 CP949 코드페이지 문제로 깨짐)
 # ════════════════════════════════════════════════════════════════════
 MSI_TEMPLATE = r"""@echo off
-setlocal
+setlocal EnableExtensions
 title Weekly Report Automator - Patch v@NEW@ (MSI install)
-REM ASCII-only launcher. The patch logic and Korean messages are in the
-REM PowerShell script embedded below (patches/msi_patch_template.ps1).
-REM Usage: double-click, or "WRA_Patch_vX.X.bat auto <PID>" (program auto update)
+REM ASCII only. Korean messages are base64 UTF-8 strings printed by one-line
+REM PowerShell commands. No script file (.ps1) is created or executed.
+REM The program's auto update reads the payload between WRA_PAYLOAD markers.
 REM WRA_NOTES_B64=@NOTES_B64@
 
-set "MODE=%~1"
-set "WPID=%~2"
-if not defined WPID set "WPID=0"
-set "PSARGS="
-if /i "%MODE%"=="auto" set "PSARGS=-Auto -WaitPid %WPID%"
-
+set "PV=@NEW@"
+set "SUB=Autotools_Mechanical\Weekly Report Automator"
 set "WD=%TEMP%\wra_patch_%RANDOM%%RANDOM%"
-mkdir "%WD%" >nul 2>&1
-if not exist "%WD%" goto err_tmp
 
+call :say "@M_TITLE@" Cyan
+echo.
+
+REM --- 1) find the MSI install folder ------------------------------------
+set "INST="
+if exist "%ProgramFiles%\%SUB%\src\" set "INST=%ProgramFiles%\%SUB%"
+if not defined INST if defined ProgramW6432 if exist "%ProgramW6432%\%SUB%\src\" set "INST=%ProgramW6432%\%SUB%"
+if not defined INST if exist "%ProgramFiles(x86)%\%SUB%\src\" set "INST=%ProgramFiles(x86)%\%SUB%"
+if not defined INST goto err_notfound
+call :sayn "@M_PATH@" Gray
+echo  %INST%
+
+REM --- 2) installed version (src\config.py APP_VERSION) --------------------
+set "IV="
+for /f "tokens=2 delims==" %%A in ('findstr /b /c:"APP_VERSION" "%INST%\src\config.py" 2^>nul') do set "IV=%%A"
+if defined IV set "IV=%IV: =%"
+if defined IV set "IV=%IV:"=%"
+call :sayn "@M_VER@" Gray
+if defined IV (echo  v%IV% -^> v%PV%) else (echo  ? -^> v%PV%)
+if not defined IV goto ver_ok
+call :vkey "%IV%" IK
+call :vkey "%PV%" PK
+if %IK% GTR %PK% goto err_newer
+:ver_ok
+echo.
+
+REM --- 3) unpack the patch data -----------------------------------------
+mkdir "%WD%" >nul 2>&1
+if not exist "%WD%" goto err_decode
+REM WRA_PAYLOAD_BEGIN
 > "%WD%\p.b64" (
 @DATA@
 )
-
+REM WRA_PAYLOAD_END
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $d=$env:WD; $b=(Get-Content -Raw -LiteralPath (Join-Path $d 'p.b64')) -replace '\s',''; [IO.File]::WriteAllBytes((Join-Path $d 'p.zip'), [Convert]::FromBase64String($b)); Expand-Archive -LiteralPath (Join-Path $d 'p.zip') -DestinationPath (Join-Path $d 'x') -Force"
 if errorlevel 1 goto err_decode
+if not exist "%WD%\x\src\config.py" goto err_decode
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%WD%\x\patch.ps1" -PayloadDir "%WD%\x\src" %PSARGS%
-set "RC=%errorlevel%"
+REM --- 4) replace src\ files and verify --------------------------------
+xcopy /Y /Q /R "%WD%\x\src\*.*" "%INST%\src\" >nul 2>&1
+if errorlevel 1 goto err_denied
+set "BAD="
+set "N=0"
+for %%F in ("%WD%\x\src\*.*") do (
+    set /a N+=1
+    fc /b "%%~fF" "%INST%\src\%%~nxF" >nul 2>&1 || set "BAD=1"
+)
+if defined BAD goto err_verify
+if exist "%INST%\src\__pycache__" rmdir /s /q "%INST%\src\__pycache__" >nul 2>&1
 rmdir /s /q "%WD%" >nul 2>&1
-if /i "%MODE%"=="auto" if "%RC%"=="0" goto auto_close
-pause >nul
-exit /b %RC%
 
-:auto_close
-timeout /t 10 >nul
-exit /b 0
-
-:err_tmp
+call :say "@M_OK@" Green
 echo.
-echo [ERROR] Could not create a temporary folder: "%WD%"
-goto fail
+call :say "@M_NOTES@" Gray
+echo.
+call :say "@M_AFTER@" Yellow
+goto done
+
+REM --- errors -------------------------------------------------------------
+:err_notfound
+call :say "@M_NOTFOUND@" Red
+echo   %ProgramFiles%\%SUB%
+if defined ProgramW6432 echo   %ProgramW6432%\%SUB%
+echo   %ProgramFiles(x86)%\%SUB%
+call :say "@M_NOTFOUND2@" Red
+goto done
+
+:err_newer
+call :say "@M_NEWER@" Red
+goto done
 
 :err_decode
-echo.
-echo [ERROR] Patch data could not be decoded. Nothing was changed.
-echo         Download the patch file again and retry.
-goto fail
+call :say "@M_DECODE@" Red
+goto cleanup_done
 
-:fail
+:err_denied
+call :say "@M_DENIED@" Red
+echo   %INST%\src
+goto cleanup_done
+
+:err_verify
+call :say "@M_VERIFY@" Red
+goto cleanup_done
+
+:cleanup_done
 rmdir /s /q "%WD%" >nul 2>&1
+
+:done
 echo.
-echo Press any key to close this window...
+call :say "@M_CLOSE@" Gray
 pause >nul
-exit /b 1
+exit /b 0
+
+REM --- helpers ------------------------------------------------------------
+REM :say "<base64 utf-8 text>" <color>   print Korean text (no script file)
+:say
+powershell -NoProfile -Command "Write-Host ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%~1'))) -ForegroundColor %~2"
+exit /b 0
+
+:sayn
+powershell -NoProfile -Command "Write-Host ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%~1'))) -ForegroundColor %~2 -NoNewline"
+exit /b 0
+
+REM :vkey "1.23" VAR   ->  VAR = 123  (1.1 < 1.11 < 1.2 < 1.22 < 1.3)
+:vkey
+set "_ma=0"
+set "_fr="
+for /f "tokens=1,2 delims=." %%a in ("%~1") do (
+    set "_ma=%%a"
+    set "_fr=%%b"
+)
+set "_fr=%_fr%00"
+set "_fr=%_fr:~0,2%"
+set /a "%~2=_ma*100 + 1%_fr% - 100"
+exit /b 0
 """
 
 
@@ -244,6 +320,10 @@ def _app_version() -> str:
     return m.group(1)
 
 
+def _b64(text: str) -> str:
+    return base64.b64encode(text.encode("utf-8")).decode("ascii")
+
+
 def build_msi_patch() -> Path:
     here  = Path(__file__).resolve().parent
     ver   = _app_version()
@@ -251,26 +331,44 @@ def build_msi_patch() -> Path:
     if not notes.exists():
         sys.exit(f"ERROR: patch notes not found: {notes}")
     note_text = notes.read_text(encoding="utf-8").strip()
-    if "'@" in note_text:
-        sys.exit("ERROR: notes must not contain the sequence '@ (PowerShell here-string end)")
-    ps1 = ((here / "msi_patch_template.ps1").read_text(encoding="utf-8")
-           .replace("@VERSION@", ver).replace("@NOTES@", note_text))
 
     files = sorted(p for p in SRC.iterdir()
                    if p.is_file() and p.suffix in (".py", ".json"))
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        # Windows PowerShell 5.1 은 BOM 없는 UTF-8 을 ANSI(CP949)로 읽으므로 BOM 필수
-        zf.writestr("patch.ps1", b"\xef\xbb\xbf" + ps1.replace("\n", "\r\n").encode("utf-8"))
         for p in files:
             zf.write(p, "src/" + p.name)
     b64  = base64.b64encode(buf.getvalue()).decode("ascii")
     data = "\n".join(f"echo {b64[i:i + 76]}" for i in range(0, len(b64), 76))
 
-    notes_b64 = base64.b64encode(note_text.encode("utf-8")).decode("ascii")
+    line = "=" * 60
+    msgs = {
+        "M_TITLE":     f"{line}\n Weekly Report Automator 패치 (v{ver}, MSI 설치본용)\n{line}",
+        "M_PATH":      "설치 경로 :",
+        "M_VER":       "버전      :",
+        "M_OK":        f"{line}\n 패치가 성공적으로 완료되었습니다.  "
+                       f"(v{ver}, 파일 {len(files)}개 교체·검증 완료)\n{line}",
+        "M_NOTES":     "패치 내용\n" + "\n".join("  " + l for l in note_text.splitlines()),
+        "M_AFTER":     "※ 프로그램을 다시 시작하면 적용됩니다. (프로그램 화면에 새 버전이 표시됩니다)\n"
+                       "※ 이후 새 버전은 프로그램을 켤 때 자동으로 확인합니다.\n"
+                       "※ 시작 메뉴 / 앱 목록의 버전 표시는 다음에 MSI로 설치할 때 바뀝니다.",
+        "M_NOTFOUND":  "[오류] 다음 경로에서 Weekly Report Automator 설치 파일을 찾을 수 없습니다:",
+        "M_NOTFOUND2": "        MSI 설치 파일(Weekly_Report_Automator_Vx.x.msi)로 먼저 설치한 뒤 다시 실행하세요.",
+        "M_NEWER":     f"[오류] 이미 더 높은 버전이 설치되어 있습니다. 이 패치(v{ver})는 적용하지 않았습니다.",
+        "M_DECODE":    "[오류] 패치 데이터를 풀지 못했습니다. 아무것도 바뀌지 않았습니다.\n"
+                       "        패치 파일을 다시 받아 실행하세요.",
+        "M_DENIED":    "[오류] 다음 폴더에 파일을 쓸 수 없습니다 (권한 없음 또는 파일 사용 중).\n"
+                       "        프로그램을 닫고, 패치 파일을 마우스 오른쪽 클릭 → [관리자 권한으로 실행] 하세요:",
+        "M_VERIFY":    "[오류] 일부 파일이 제대로 교체되지 않았습니다. 프로그램을 닫고 다시 실행하세요.",
+        "M_CLOSE":     "창을 닫으려면 아무 키나 누르세요...",
+    }
     text = (MSI_TEMPLATE.replace("@NEW@", ver).replace("@DATA@", data)
-            .replace("@NOTES_B64@", notes_b64))
+            .replace("@NOTES_B64@", _b64(note_text)))
+    for k, v in msgs.items():
+        text = text.replace(f"@{k}@", _b64(v))
     text.encode("ascii")
+    if len(max(text.splitlines(), key=len)) > 8000:
+        sys.exit("ERROR: a line is too long for cmd.exe (8191 chars)")
     # 파일명 규칙: WRA_Patch_v<버전>.bat — 프로그램 자동 업데이트가 이 이름으로 찾는다
     out = here / f"WRA_Patch_v{ver}.bat"
     out.write_bytes(text.replace("\n", "\r\n").encode("ascii"))
