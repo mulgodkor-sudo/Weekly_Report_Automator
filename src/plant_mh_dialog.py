@@ -29,6 +29,8 @@ FLEX_AUTO    = "자동 (일정 기준)"
 FLEX_CHOICES = [(FLEX_AUTO, None)] + [
     (f"{h:02d}:{m:02d}~{h + 9:02d}:{m:02d}", (h, m)) for h, m in FLEX_STARTS]
 C_MANUAL     = "#C55A11"   # 날짜별로 직접 바꾼 출근시각 표시
+C_PICK_BG    = "#FFFFFF"   # 클릭해서 바꿀 수 있는 출근시각 칸 바탕
+C_PICK_HOVER = "#DDEBF7"   # 마우스를 올렸을 때
 
 FONT      = ("맑은 고딕", 9)
 FONT_B    = ("맑은 고딕", 9, "bold")
@@ -113,7 +115,7 @@ class PlantMHDialog(tk.Toplevel):
         cb.pack(side="left", padx=6)
         cb.bind("<<ComboboxSelected>>", self._on_flex_change)
         ttk.Label(fr_f,
-                  text="자동 = 그날 일정으로 출근시각 판단  |  표의 날짜 아래 출근시각을 클릭하면 그날만 변경",
+                  text="자동 = 그날 일정으로 출근시각 판단  |  표의 날짜 아래 출근시각(▾)을 클릭하면 그날만 변경",
                   foreground="gray", font=("맑은 고딕", 8)).pack(side="left", padx=8)
 
         # ── 표 영역: 왼쪽 고정 + 오른쪽 가로 스크롤 ─────────────────
@@ -378,12 +380,18 @@ class PlantMHDialog(tk.Toplevel):
             s = self._starts.get(d, "")
             flex = bool(s) and s != "08:30"
             manual = d in self._day_override
-            lbl = self._cell(R, 3, 2 * i, s, bg=H,
-                             fg=C_MANUAL if manual else (pm.C_FLEX if flex else "#595959"),
-                             bold=flex or manual, cs=2)
-            if d.weekday() < 5:          # 평일만 출근시각 변경 가능
+            sfg = C_MANUAL if manual else (pm.C_FLEX if flex else "#595959")
+            if d.weekday() < 5 and s:
+                # 평일 + 실적 있는 날: 클릭해서 그날 출근시각 변경 가능
+                # → 흰 바탕 + ▾ 표시 + 마우스 올리면 하늘색 (버튼처럼 보이게)
+                lbl = self._cell(R, 3, 2 * i, f"{s} ▾", bg=C_PICK_BG, fg=sfg,
+                                 bold=flex or manual, cs=2)
                 lbl.config(cursor="hand2")
                 lbl.bind("<Button-1>", lambda e, d=d: self._flex_menu(e, d))
+                lbl.bind("<Enter>", lambda e, w=lbl: w.config(bg=C_PICK_HOVER))
+                lbl.bind("<Leave>", lambda e, w=lbl: w.config(bg=C_PICK_BG))
+            else:
+                self._cell(R, 3, 2 * i, s, bg=H, fg=sfg, bold=flex or manual, cs=2)
             self._cell(R, 4, 2 * i,     "ST", bg=H, fg=fg, bold=True)
             self._cell(R, 4, 2 * i + 1, "OT", bg=H, fg=fg, bold=True)
         c_st = 2 * len(dates)
