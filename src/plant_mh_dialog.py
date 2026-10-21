@@ -121,13 +121,7 @@ class PlantMHDialog(tk.Toplevel):
         # ── 하단 ────────────────────────────────────────────────────
         fr_btn = tk.Frame(self, bg="#F0F2F5")
         fr_btn.pack(fill="x", padx=12, pady=(4, 8))
-        self.lbl_stat = tk.Label(fr_btn, text="",
-                                 fg="#1F4E79", bg="#F0F2F5", font=FONT_B)
-        self.lbl_stat.pack(side="left")
-        tk.Label(fr_btn, text=pm.NOTE,
-                 fg="gray", bg="#F0F2F5", font=("맑은 고딕", 8)
-                 ).pack(side="left", padx=(16, 0))
-
+        # 버튼을 먼저 배치 → 상태 문구가 길어져도 버튼이 화면 밖으로 밀리지 않음
         ttk.Button(fr_btn, text="✅  닫기",
                    command=self.destroy, width=12).pack(side="right")
         self.btn_excel = tk.Button(
@@ -137,6 +131,15 @@ class PlantMHDialog(tk.Toplevel):
             disabledforeground="#AAAAAA",
             relief="flat", padx=14, pady=4, cursor="hand2", state="disabled")
         self.btn_excel.pack(side="right", padx=(0, 8))
+
+        left = tk.Frame(fr_btn, bg="#F0F2F5")
+        left.pack(side="left", fill="x", expand=True)
+        self.lbl_stat = tk.Label(left, text="", anchor="w",
+                                 fg="#1F4E79", bg="#F0F2F5", font=FONT_B)
+        self.lbl_stat.pack(side="top", fill="x")
+        tk.Label(left, text=pm.NOTE, anchor="w",
+                 fg="gray", bg="#F0F2F5", font=("맑은 고딕", 8)
+                 ).pack(side="top", fill="x")
 
     # ── 스크롤 ───────────────────────────────────────────────────────
     def _yview(self, *args):
@@ -214,10 +217,19 @@ class PlantMHDialog(tk.Toplevel):
         st = round(sum(it["st_total"] for it in items), 1)
         ot = round(sum(it["ot_total"] for it in items), 1)
         d0, d1 = dates[0], dates[-1]
+        # Description 은 FC 엑셀(업무명)에서 채움 → 못 읽었으면 이유를 함께 표시
+        from config import get_fc_status
+        fc_src, fc_why = get_fc_status()
+        fc_note = ""
+        if fc_src == "default":
+            fc_note = "   ⚠ FC 엑셀 미사용(내장 목록) - " + fc_why[:70]
+        elif fc_src == "none":
+            fc_note = "   ⚠ Description 없음 - " + (fc_why or "FC 엑셀 파일 경로를 설정하세요")[:70]
         self.lbl_stat.config(
             text=f"{d0.month}/{d0.day} ~ {d1.month}/{d1.day}   |   "
                  f"ST {pm.fmt_h(st)}H  /  OT {pm.fmt_h(ot)}H"
-                 + ("" if items else "   (해당 기간 [실적] 없음)"))
+                 + ("" if items else "   (해당 기간 [실적] 없음)") + fc_note,
+            fg="#C00000" if fc_note else "#1F4E79")
         self.btn_excel.config(state="normal" if items else "disabled")
 
     def _on_err(self, msg):

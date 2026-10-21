@@ -61,9 +61,11 @@ def aggregate(rows: list[dict]) -> list[dict]:
             continue
         pc = r.get("project_code") or ""
         fc = r.get("func_code")    or ""
+        desc = r.get("func_name") or ""
+        if fc and not desc:
+            desc = "(FC 목록에 없는 코드)"
         item = agg.setdefault((pc, fc), dict(
-            gubun=mh_gubun(pc), pc=pc, fc=fc,
-            desc=r.get("func_name") or "", cells={}))
+            gubun=mh_gubun(pc), pc=pc, fc=fc, desc=desc, cells={}))
         cell = item["cells"].setdefault(to_date(r["date"]), [0.0, 0.0])
         cell[0] = round(cell[0] + r.get("this_week_st", r.get("this_week_h", 0.0)), 1)
         cell[1] = round(cell[1] + r.get("this_week_ot", 0.0), 1)

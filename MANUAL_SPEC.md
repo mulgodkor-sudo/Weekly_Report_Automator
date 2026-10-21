@@ -11,7 +11,7 @@
 |------|------|
 | 프로그램명 | Weekly Report Automator |
 | 버전 문자열 | `src/config.py`의 `APP_VERSION` 상수 기준 (`get_version_str()`) |
-| 현재 버전 | `"1.2"` (`src/config.py` `APP_VERSION`) |
+| 현재 버전 | `"1.21"` (`src/config.py` `APP_VERSION`) |
 | 주 기능 | Microsoft Outlook 캘린더에서 [실적]/[계획] 태그 일정을 읽어 Weekly Report Excel 파일 자동 생성 |
 | 진입점 | `main.py` (PyInstaller 빌드 시 exe에 고정) |
 | UI 프레임워크 | Python 3.13 + tkinter |
@@ -337,6 +337,17 @@ KPI 컬럼 파싱:
 - `KPI` 셀에 `/` 포함 + `O` 포함 (예: "O (LE미팅) / X(그룹리더/팀미팅)") → `kpi = "conditional"` (`src/config.py:136–138`)
 - `KPI == "O"` → `kpi = True` (`src/config.py:139–140`)
 - 그 외 → `kpi = False` (`src/config.py:141–142`)
+
+
+### 9-2. FC 목록 불러오기 실패 시 (v1.21)
+
+- FC 엑셀은 **모든 시트**에서 머리글을 찾는다 (다른 시트가 열린 상태로 저장돼도 인식)
+- `CODE` 칸이 비어 있으면(수식 결과값 미저장 등) `Level 1` + "-" + `Level 2`로 코드를 구성
+- 경로 미설정 / 파일 없음 / 코드 0개일 때는 **내장 기본 목록 `src/fc_default.json`(50개 코드)**으로
+  업무명(Description)·구분을 채우고, 이유를 상태바·사전 검토·M/H 확인 창(빨간 글씨)에 표시
+- 상태바: `FC 로드 완료 (N개, 파일명)` / `⚠ {이유} → 내장 기본 목록 사용 (50개)`
+- FC 목록에 없는 코드는 M/H 확인 창·Plant MH 시트 Description에 `(FC 목록에 없는 코드)`로 표시
+- FC 엑셀에 코드가 추가되면 `src/fc_default.json`도 함께 갱신해 두면 경로 문제가 있어도 최신 목록 사용
 
 ---
 

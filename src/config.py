@@ -35,7 +35,7 @@ CONFIG_FILE = _config_path()
 
 # 프로그램 버전 — 패치로 교체되는 이 파일이 기준.
 # (문서 폴더 config.json에 예전 version 값이 남아 있어도 화면에는 이 값을 표시)
-APP_VERSION = "1.2"
+APP_VERSION = "1.21"
 
 _DEFAULT_CONFIG: dict = {
     "func_code_excel_path": "",
@@ -81,6 +81,12 @@ CONDITIONAL_CODES = {"GA11-25", "GA08-01"}
 
 # ── FC 테이블 (런타임에 동적 로드) ───────────────────────────────────
 _FC: dict[str, dict] = {}
+# 현재 FC 테이블의 출처: "excel"(FC 엑셀) / "default"(내장 기본 목록) / "none"
+_FC_SOURCE: str = "none"
+_FC_MESSAGE: str = ""        # 엑셀을 못 쓴 이유 (화면 안내용)
+
+# 내장 기본 FC 목록 — FC 엑셀을 못 읽을 때(경로 다름, 네트워크 드라이브 끊김 등) 사용
+DEFAULT_FC_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fc_default.json")
 
 def find_fc_excel_in_folder(folder: str) -> str | None:
     """같은 폴더에서 '기계설계' 포함 엑셀 파일 검색"""
@@ -92,79 +98,123 @@ def find_fc_excel_in_folder(folder: str) -> str | None:
         pass
     return None
 
+def _kpi_of(code: str, kpi_v: str):
+    if code in CONDITIONAL_CODES:
+        return "conditional"
+    if "/" in kpi_v and "O" in kpi_v.upper():
+        # "O (LE미팅) / X(그룹리더/팀미팅)" 형식 → conditional
+        return "conditional"
+    return kpi_v.upper() == "O"
+
+def _cell(row, idx) -> str:
+    if idx is None or idx >= len(row):
+        return ""
+    v = row[idx]
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v if v is not None else "").strip()
+
 def load_fc_from_excel(excel_path: str) -> dict[str, dict]:
     """
     엑셀 파일에서 FC 테이블 로드
     - read_only=True  : 읽기 전용 (동시 접근 허용)
     - data_only=True  : 수식이 아닌 캐시된 결과값 읽기
-    - 헤더 자동 감지  : 구분, CODE, KPI, 업무명
+    - 헤더 자동 감지  : 구분, CODE, KPI, 업무명 (선택: Level 1, Level 2)
+    - 모든 시트 검색  : 엑셀을 다른 시트가 열린 상태로 저장해도 FC 시트를 찾음
+    - CODE 칸이 비어 있으면 (수식 결과값 미저장 등) Level 1 + "-" + Level 2 로 구성
     """
     import openpyxl
-    fc: dict[str, dict] = {}
+    required = {"구분", "CODE", "KPI", "업무명"}
 
     wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
     try:
-        ws = wb.active
-        all_rows = list(ws.iter_rows(values_only=True))
+        sheets = [wb.active] + [w for w in wb.worksheets if w is not wb.active]
+        for ws in sheets:
+            if ws is None:
+                continue
+            all_rows = list(ws.iter_rows(values_only=True))
 
-        # 헤더 행 탐색 (최대 15행)
-        header_idx = None
-        col_map: dict[str, int] = {}
-        required = {"구분", "CODE", "KPI", "업무명"}
+            # 헤더 행 탐색 (최대 15행)
+            header_idx = None
+            col_map: dict[str, int] = {}
+            for r_idx, row in enumerate(all_rows[:15]):
+                row_vals = [str(v or "").strip() for v in row]
+                if required.issubset(set(row_vals)):
+                    header_idx = r_idx
+                    col_map = {v: i for i, v in enumerate(row_vals)}
+                    break
+            if header_idx is None:
+                continue
 
-        for r_idx, row in enumerate(all_rows[:15]):
-            row_vals = [str(v or "").strip() for v in row]
-            if required.issubset(set(row_vals)):
-                header_idx = r_idx
-                col_map = {v: i for i, v in enumerate(row_vals) if v in required}
-                break
-
-        if header_idx is None:
-            return fc
-
-        # 데이터 파싱
-        for row in all_rows[header_idx + 1:]:
-            try:
-                group = str(row[col_map["구분"  ]] or "").strip()
-                code  = str(row[col_map["CODE"  ]] or "").strip()
-                kpi_v = str(row[col_map["KPI"   ]] or "").strip()
-                name  = str(row[col_map["업무명"]] or "").strip()
-
+            fc: dict[str, dict] = {}
+            for row in all_rows[header_idx + 1:]:
+                group = _cell(row, col_map["구분"])
+                code  = _cell(row, col_map["CODE"])
+                kpi_v = _cell(row, col_map["KPI"])
+                name  = _cell(row, col_map["업무명"])
+                if not code:
+                    l1 = _cell(row, col_map.get("Level 1"))
+                    l2 = _cell(row, col_map.get("Level 2"))
+                    if l1 and l2:
+                        code = f"{l1}-{l2.zfill(2)}"
+                code = code.replace(" ", "")
                 if not code or not group:
                     continue
-
-                # KPI 판단
-                if code in CONDITIONAL_CODES:
-                    kpi = "conditional"
-                elif "/" in kpi_v and "O" in kpi_v.upper():
-                    # "O (LE미팅) / X(그룹리더/팀미팅)" 형식 → conditional
-                    kpi = "conditional"
-                elif kpi_v.upper() == "O":
-                    kpi = True
-                else:
-                    kpi = False
-
-                fc[code] = dict(group=group, kpi=kpi, name=name)
-            except Exception:
-                continue
+                fc[code] = dict(group=group, kpi=_kpi_of(code, kpi_v), name=name)
+            if fc:
+                return fc
     finally:
         wb.close()
+    return {}
 
-    return fc
+def load_default_fc() -> dict[str, dict]:
+    """내장 기본 FC 목록 (src/fc_default.json)"""
+    try:
+        with open(DEFAULT_FC_FILE, encoding="utf-8") as f:
+            rows = json.load(f)
+        return {r["code"]: dict(group=r["group"], kpi=_kpi_of(r["code"], r["kpi"]),
+                                name=r["name"]) for r in rows}
+    except Exception:
+        return {}
 
-def reload_fc(excel_path: str = "") -> None:
-    """FC 테이블 재로드 (경로 미입력 시 config.json 참조)"""
-    global _FC
+def reload_fc(excel_path: str = "") -> int:
+    """
+    FC 테이블 재로드 (경로 미입력 시 config.json 참조). 불러온 코드 개수 반환.
+    FC 엑셀을 못 읽으면 내장 기본 목록을 사용하고, 이유를 get_fc_status() 로 알려준다.
+    """
+    global _FC, _FC_SOURCE, _FC_MESSAGE
     if not excel_path:
         cfg = load_config()
         excel_path = cfg.get("func_code_excel_path", "")
-    if excel_path and os.path.exists(excel_path):
-        _FC = load_fc_from_excel(excel_path)
+
+    fc, msg = {}, ""
+    if not excel_path:
+        msg = "FC 엑셀 파일 경로가 설정되지 않았습니다"
+    elif not os.path.exists(excel_path):
+        msg = f"FC 엑셀 파일을 찾을 수 없습니다 ({excel_path})"
     else:
-        _FC = {}
+        try:
+            fc = load_fc_from_excel(excel_path)
+            if not fc:
+                msg = ("FC 엑셀에서 코드를 읽지 못했습니다 "
+                       "(머리글 구분/CODE/KPI/업무명 확인, 엑셀에서 열어 저장 후 재시도)")
+        except Exception as e:
+            msg = f"FC 엑셀을 열 수 없습니다 ({e})"
+
+    if fc:
+        _FC, _FC_SOURCE, _FC_MESSAGE = fc, "excel", ""
+    else:
+        _FC = load_default_fc()
+        _FC_SOURCE = "default" if _FC else "none"
+        _FC_MESSAGE = msg
+    return len(_FC)
 
 def get_fc() -> dict[str, dict]:
     return _FC
+
+def get_fc_status() -> tuple[str, str]:
+    """(출처 "excel"/"default"/"none", 엑셀을 못 쓴 이유)"""
+    return _FC_SOURCE, _FC_MESSAGE
 
 # ── 구분(C열) 결정 ───────────────────────────────────────────────────
 def get_gubun(func_code: str, title: str = "",
