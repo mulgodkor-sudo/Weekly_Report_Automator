@@ -3,7 +3,7 @@ make_patch.py — 단일 .bat 패치 파일 생성기
 
 사용법 (저장소 루트에서):
   python patches/make_patch.py 1.2 1.11 1.1     (onedir 폴더용, ~v1.2)
-  python patches/make_patch.py msi               (MSI 설치본용, v1.22~)
+  python patches/make_patch.py msi               (MSI 설치본용 → WRA_Patch_v<버전>.bat, v1.23~)
 
   첫 번째 인자 : 새 버전 (예: 1.2)
   나머지 인자  : 이 패치를 적용할 수 있는 이전 버전들 (exe/폴더명 V표기 변경용)
@@ -171,7 +171,8 @@ def build(new: str, olds: list[str]) -> Path:
 # ════════════════════════════════════════════════════════════════════
 # MSI 설치본용 패치 (v1.22~)
 #   python patches/make_patch.py msi
-#   → patches/apply_patch_v<APP_VERSION>.bat
+#   → patches/WRA_Patch_v<APP_VERSION>.bat  (파일명 규칙 — 이 파일만 ECM WRA_Patch 폴더에 올리면
+#     프로그램이 시작할 때 찾아서 업데이트를 묻는다, src/updater.py)
 #   - 아무 폴더에서나 실행 → MSI 고정 설치 경로
 #     (C:\Program Files\Autotools_Mechanical\Weekly Report Automator) 를 찾아 src\ 교체
 #   - 버전은 src/config.py APP_VERSION, 패치 내용은 patches/notes_v<버전>.txt (UTF-8)
@@ -183,6 +184,14 @@ setlocal
 title Weekly Report Automator - Patch v@NEW@ (MSI install)
 REM ASCII-only launcher. The patch logic and Korean messages are in the
 REM PowerShell script embedded below (patches/msi_patch_template.ps1).
+REM Usage: double-click, or "WRA_Patch_vX.X.bat auto <PID>" (program auto update)
+REM WRA_NOTES_B64=@NOTES_B64@
+
+set "MODE=%~1"
+set "WPID=%~2"
+if not defined WPID set "WPID=0"
+set "PSARGS="
+if /i "%MODE%"=="auto" set "PSARGS=-Auto -WaitPid %WPID%"
 
 set "WD=%TEMP%\wra_patch_%RANDOM%%RANDOM%"
 mkdir "%WD%" >nul 2>&1
@@ -195,11 +204,16 @@ if not exist "%WD%" goto err_tmp
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $d=$env:WD; $b=(Get-Content -Raw -LiteralPath (Join-Path $d 'p.b64')) -replace '\s',''; [IO.File]::WriteAllBytes((Join-Path $d 'p.zip'), [Convert]::FromBase64String($b)); Expand-Archive -LiteralPath (Join-Path $d 'p.zip') -DestinationPath (Join-Path $d 'x') -Force"
 if errorlevel 1 goto err_decode
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%WD%\x\patch.ps1" -PayloadDir "%WD%\x\src"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%WD%\x\patch.ps1" -PayloadDir "%WD%\x\src" %PSARGS%
 set "RC=%errorlevel%"
 rmdir /s /q "%WD%" >nul 2>&1
+if /i "%MODE%"=="auto" if "%RC%"=="0" goto auto_close
 pause >nul
 exit /b %RC%
+
+:auto_close
+timeout /t 10 >nul
+exit /b 0
 
 :err_tmp
 echo.
@@ -253,9 +267,12 @@ def build_msi_patch() -> Path:
     b64  = base64.b64encode(buf.getvalue()).decode("ascii")
     data = "\n".join(f"echo {b64[i:i + 76]}" for i in range(0, len(b64), 76))
 
-    text = MSI_TEMPLATE.replace("@NEW@", ver).replace("@DATA@", data)
+    notes_b64 = base64.b64encode(note_text.encode("utf-8")).decode("ascii")
+    text = (MSI_TEMPLATE.replace("@NEW@", ver).replace("@DATA@", data)
+            .replace("@NOTES_B64@", notes_b64))
     text.encode("ascii")
-    out = here / f"apply_patch_v{ver}.bat"
+    # 파일명 규칙: WRA_Patch_v<버전>.bat — 프로그램 자동 업데이트가 이 이름으로 찾는다
+    out = here / f"WRA_Patch_v{ver}.bat"
     out.write_bytes(text.replace("\n", "\r\n").encode("ascii"))
     print(f"{out.name} (MSI install): {len(files)} files -> {', '.join(p.name for p in files)}")
     return out

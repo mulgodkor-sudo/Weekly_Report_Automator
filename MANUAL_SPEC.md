@@ -11,7 +11,7 @@
 |------|------|
 | 프로그램명 | Weekly Report Automator |
 | 버전 문자열 | `src/config.py`의 `APP_VERSION` 상수 기준 (`get_version_str()`) |
-| 현재 버전 | `"1.22"` (`src/config.py` `APP_VERSION`) |
+| 현재 버전 | `"1.23"` (`src/config.py` `APP_VERSION`) |
 | 주 기능 | Microsoft Outlook 캘린더에서 [실적]/[계획] 태그 일정을 읽어 Weekly Report Excel 파일 자동 생성 |
 | 진입점 | `main.py` (PyInstaller 빌드 시 exe에 고정) |
 | UI 프레임워크 | Python 3.13 + tkinter |
@@ -592,6 +592,19 @@ error_message: '목록에서 선택하세요'
 | `src/config.py` | `version` 키 추가, `get_version_str()` 헬퍼 추가 |
 | `src/config.json` | `version: "1.11"` 추가 |
 | `src/excel_writer.py` | 날짜 정렬 버그 수정, I열 병합 회귀 버그 수정, 테두리 누락 수정 |
+
+---
+
+## 14-A. 자동 업데이트 (v1.23, `src/updater.py`)
+
+- 배포 폴더: `X:\부서 문서함\기계팀\기계설계\1_부서 업무\3-9 기술자료\13. Outlook_Excel_Extractor_Mechanical\WRA_Patch`
+  (설정 `update_folder` 로 변경 가능)
+- 파일명 규칙 `WRA_Patch_v<버전>.bat` (정규식 `^WRA_Patch_v(\d+)\.(\d{1,2})\.bat$`, 대소문자 무시), 가장 높은 버전 사용
+- 프로그램 시작 1.5초 후 백그라운드 확인 → 새 버전이면 `업데이트 알림` 창 (변경 내용 = bat 의 `REM WRA_NOTES_B64=` 줄)
+- [예] → 패치를 `%TEMP%\wra_update_<PID>` 로 복사, `WRA_Patch_vX.X.bat auto <PID>` 로 새 창 실행 → 프로그램 종료
+  → 패치가 종료 대기(최대 30초) → `src\` 교체·SHA256 검증 → exe 재실행 → 10초 후 창 닫힘
+- MSI 설치본(exe 옆 `msi_installed.txt`)에서만 동작, ECM 미연결·오류 시 조용히 넘어감
+- `updater.py` 는 예전 exe 위에서도 돌아야 하므로 `os / sys / re / binascii` 만 사용
 
 ---
 

@@ -48,6 +48,8 @@ class WeeklyReportApp:
         self._build_ui()
         self._init_dates()
         self._load_fc_on_startup()
+        # ECM 배포 폴더(WRA_Patch)에서 새 버전 확인 — 화면이 뜬 뒤 백그라운드로
+        self.root.after(1500, self._check_update)
 
     # ── 변수 ─────────────────────────────────────────────────────────
     def _setup_vars(self):
@@ -734,6 +736,45 @@ class WeeklyReportApp:
         self._set_status(f"오류  →  {msg[:70]}")
         self._set_warn(f"❌  {title}\n\n{msg}")
         messagebox.showerror(title, msg)
+
+    # ── 자동 업데이트 (updater.py) ───────────────────────────────────
+    def _check_update(self):
+        import updater
+        if not updater.is_msi_install():
+            return                     # MSI 설치본에서만 (개발 환경·폴더 복사본 제외)
+
+        def task():
+            try:
+                from config import APP_VERSION
+                info = updater.check(APP_VERSION)
+            except Exception:
+                info = None            # 네트워크 드라이브 미연결 등 → 조용히 넘어감
+            if info:
+                self.root.after(0, lambda: self._ask_update(info))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    def _ask_update(self, info: dict):
+        import updater
+        from config import APP_VERSION
+        notes = (info.get("notes") or "").strip()
+        if len(notes) > 1200:
+            notes = notes[:1200] + "\n..."
+        msg = (f"새 버전 v{info['version']} 이(가) 있습니다.  (현재 v{APP_VERSION})\n\n"
+               + (f"[변경 내용]\n{notes}\n\n" if notes else "")
+               + "지금 업데이트할까요?\n"
+               "[예] 를 누르면 프로그램이 닫히고, 업데이트 후 자동으로 다시 실행됩니다.")
+        if not messagebox.askyesno("업데이트 알림", msg):
+            self._set_status(f"새 버전 v{info['version']} 이(가) 있습니다 — 다음 실행 때 다시 알려드립니다")
+            return
+        try:
+            updater.launch(info["path"])
+        except Exception as e:
+            messagebox.showerror("업데이트 오류",
+                                 f"업데이트를 시작하지 못했습니다:\n{e}\n\n"
+                                 f"다음 파일을 직접 실행하세요:\n{info['path']}")
+            return
+        self.root.destroy()            # 패치가 프로그램 종료를 기다렸다가 적용 후 다시 실행
 
     def _report_callback_exception(self, exc, val, tb):
         import traceback
