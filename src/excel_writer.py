@@ -567,4 +567,4 @@ def _plant_mh(wb, rows: list[dict], fmts: dict):
     first = min(ds)
     first = first - timedelta(days=first.weekday())          # 그 주 월요일
     dates = plant_mh.date_list(first, plant_mh.week_sunday(max(ds)))
-    plant_mh.write_sheet(wb, ws, items, dates)
+    plant_mh.write_sheet(wb, ws, items, dates, plant_mh.day_starts(rows))

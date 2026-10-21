@@ -10,7 +10,7 @@ exe 호환 핵심 사항:
 """
 from __future__ import annotations
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
 
 
@@ -146,43 +146,82 @@ def event_hours(item) -> float:
 # 정규시간(ST) / 초과근무(OT) 구분
 # ══════════════════════════════════════════════════════════
 
-ST_START_HM = (8, 30)   # 정규시간 시작 08:30
-ST_END_HM   = (17, 30)  # 정규시간 종료 17:30
-ST_DAILY_H  = 8.0       # 하루 정규시간 상한
+# 시차출퇴근: 07:30 ~ 09:30 중 30분 단위 출근, 근무 9시간(점심 1시간 포함) = ST 8H
+FLEX_STARTS   = [(7, 30), (8, 0), (8, 30), (9, 0), (9, 30)]
+DEFAULT_START = (8, 30)          # 정상 출근 08:30~17:30
+ST_SPAN_H     = 9                # 출근~퇴근 구간 (점심 1시간 포함)
+ST_DAILY_H    = 8.0              # 하루 정규시간 상한
 
 
-def _st_window_hours(e: dict) -> float:
-    """일정이 평일 08:30~17:30 구간과 겹치는 시간 (30분 단위 반올림). 주말은 0."""
-    date = e["date"]
-    if date.weekday() >= 5:
+def hm_label(hm) -> str:
+    return f"{hm[0]:02d}:{hm[1]:02d}" if hm else ""
+
+
+def _window(date: datetime, hm) -> tuple[datetime, datetime]:
+    ws = date.replace(hour=hm[0], minute=hm[1])
+    return ws, ws + timedelta(hours=ST_SPAN_H)
+
+
+def pick_flex_start(date: datetime, events: list[dict]):
+    """
+    그날 일정으로 시차출퇴근 출근시각 자동 판단.
+      1) 07:30~09:30 다섯 가지 중 그날 일정이 근무구간(9시간)에 가장 많이 들어가는 시각
+      2) 같으면 그날 첫 일정 시작시각에 가장 가까운 시각
+      3) 시간 지정 일정이 없으면(종일 일정만) 08:30
+    예) 월~목 첫 일정 08:30 → 08:30~17:30, 금 첫 일정 07:30 → 07:30~16:30
+        06:30 이른 회의 후 08:30부터 근무 → 08:30~17:30 (06:30~07:30 은 OT)
+    """
+    timed = [e for e in events
+             if not e.get("is_all_day") and e.get("start") and e.get("end")]
+    if not timed:
+        return DEFAULT_START
+    first = min(e["start"] for e in timed)
+
+    def score(hm):
+        ws, we = _window(date, hm)
+        covered = sum(max(0.0, (min(e["end"], we) - max(e["start"], ws)).total_seconds())
+                      for e in timed)
+        dist = abs((ws - first).total_seconds())
+        return (round(covered / 60), -dist, hm == DEFAULT_START)
+
+    return max(FLEX_STARTS, key=score)
+
+
+def _st_window_hours(e: dict, hm) -> float:
+    """일정이 그날 근무구간(출근 hm ~ +9시간)과 겹치는 시간 (30분 단위 반올림). 주말은 0."""
+    if hm is None:
         return 0.0
     if e.get("is_all_day"):
         return e["hours"]
     start, end = e.get("start"), e.get("end")
     if not start or not end:
         return e["hours"]
-    win_s = date.replace(hour=ST_START_HM[0], minute=ST_START_HM[1])
-    win_e = date.replace(hour=ST_END_HM[0],   minute=ST_END_HM[1])
+    win_s, win_e = _window(e["date"], hm)
     overlap = (min(end, win_e) - max(start, win_s)).total_seconds() / 3600
     return min(_round_half(max(overlap, 0.0)), e["hours"])
 
 
 def assign_st_ot(events: list[dict]) -> None:
     """
-    각 이벤트에 st_hours / ot_hours 기록 (in-place).
-      - 평일 08:30~17:30 안의 시간 → ST, 밖의 시간 → OT
+    각 이벤트에 st_hours / ot_hours / st_start(그날 출근시각 "07:30" 등) 기록 (in-place).
+      - 평일: 그날 시차출퇴근 시각을 자동 판단(pick_flex_start) → 근무구간 안 = ST, 밖 = OT
       - 토·일은 전부 OT
       - 하루 ST는 최대 8H: 같은 날·같은 태그의 일정을 시작시각 순으로 누적해
         8H를 넘는 부분은 OT로 넘김 (예: 점심시간 회의)
     """
-    used: dict[tuple, float] = {}   # (date, tag) → 누적 ST
-    for e in sorted(events, key=lambda x: x.get("start") or x["date"]):
-        key = (e["date"], e.get("tag"))
-        remain = max(ST_DAILY_H - used.get(key, 0.0), 0.0)
-        st = min(_st_window_hours(e), remain)
-        used[key] = used.get(key, 0.0) + st
-        e["st_hours"] = st
-        e["ot_hours"] = round(e["hours"] - st, 1)
+    groups: dict[tuple, list[dict]] = {}
+    for e in events:
+        groups.setdefault((e["date"], e.get("tag")), []).append(e)
+
+    for (date, _tag), evs in groups.items():
+        hm = pick_flex_start(date, evs) if date.weekday() < 5 else None
+        used = 0.0
+        for e in sorted(evs, key=lambda x: x.get("start") or x["date"]):
+            st = min(_st_window_hours(e, hm), max(ST_DAILY_H - used, 0.0))
+            used += st
+            e["st_hours"] = st
+            e["ot_hours"] = round(e["hours"] - st, 1)
+            e["st_start"] = hm_label(hm)
 
 
 # ══════════════════════════════════════════════════════════

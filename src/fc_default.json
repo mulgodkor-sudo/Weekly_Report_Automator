@@ -1,0 +1,302 @@
+[
+ {
+  "group": "General",
+  "code": "GE04-02",
+  "kpi": "X",
+  "name": "[Non-KPI] 휴가/공가"
+ },
+ {
+  "group": "General",
+  "code": "GA07-04",
+  "kpi": "X",
+  "name": "[Non-KPI] 내부회계관리(ICAN)/환경경영/품질경영"
+ },
+ {
+  "group": "General",
+  "code": "GA09-01",
+  "kpi": "X",
+  "name": "[Non-KPI] CP 자율점검"
+ },
+ {
+  "group": "General",
+  "code": "GA09-03",
+  "kpi": "X",
+  "name": "[Non-KPI] 정보보호 체크리스트"
+ },
+ {
+  "group": "General",
+  "code": "GA18-01",
+  "kpi": "X",
+  "name": "[Non-KPI] 사내 IT System 운영"
+ },
+ {
+  "group": "General",
+  "code": "GA07-05",
+  "kpi": "X",
+  "name": "[Non-KPI] 팀 예산"
+ },
+ {
+  "group": "General",
+  "code": "GE05-02",
+  "kpi": "O",
+  "name": "[KPI] Project 외주관리 (설계/기술)"
+ },
+ {
+  "group": "General",
+  "code": "GA07-12",
+  "kpi": "X",
+  "name": "[Non-KPI] 교육/훈련 계획 수립 / 참석"
+ },
+ {
+  "group": "General",
+  "code": "GA11-25",
+  "kpi": "O (LE미팅) / X(그룹리더/팀미팅)",
+  "name": "[Non-KPI] 팀 회의 및 업무보고"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-70",
+  "kpi": "O",
+  "name": "[KPI] Register, List & Log"
+ },
+ {
+  "group": "General",
+  "code": "GE05-06",
+  "kpi": "O",
+  "name": "[KPI] Project 품질 관리"
+ },
+ {
+  "group": "General",
+  "code": "GE04-08",
+  "kpi": "O",
+  "name": "[KPI] Design Plan"
+ },
+ {
+  "group": "General",
+  "code": "GA07-11",
+  "kpi": "X",
+  "name": "[Non-KPI] 팀 인사 및 총무 업무"
+ },
+ {
+  "group": "General",
+  "code": "GE04-03",
+  "kpi": "O",
+  "name": "[Non-KPI] M/H 관리 (직무 별 M/H담당자)"
+ },
+ {
+  "group": "Project",
+  "code": "PF03-05",
+  "kpi": "O",
+  "name": "[KPI] FAT (Factory Acceptance Test)"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-02",
+  "kpi": "O",
+  "name": "[KPI] Equipment Data Sheet"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-16",
+  "kpi": "O",
+  "name": "[KPI] BM"
+ },
+ {
+  "group": "Project",
+  "code": "PF01-05",
+  "kpi": "O",
+  "name": "[KPI] PR (Purchase Requisition)"
+ },
+ {
+  "group": "Project",
+  "code": "PE01-05",
+  "kpi": "O",
+  "name": "[KPI] General Specification"
+ },
+ {
+  "group": "Project",
+  "code": "PF02-03",
+  "kpi": "O",
+  "name": "[KPI] VP (Vendor Print) Expedite"
+ },
+ {
+  "group": "General",
+  "code": "GE05-04",
+  "kpi": "O",
+  "name": "[KPI] Project 관련 Meeting"
+ },
+ {
+  "group": "General",
+  "code": "GA17-04",
+  "kpi": "O",
+  "name": "[Non-KPI] Lessons Learned DB 등록"
+ },
+ {
+  "group": "General",
+  "code": "GE05-07",
+  "kpi": "O",
+  "name": "[KPI] Project Cost/Schedule/Risk 관리"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-35",
+  "kpi": "O",
+  "name": "[KPI] 타부서 Information 작성 및 Check"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-17",
+  "kpi": "O",
+  "name": "[KPI] Engineering Document"
+ },
+ {
+  "group": "General",
+  "code": "GE04-04",
+  "kpi": "O",
+  "name": "[KPI] 전략과제/혁신/개선/표준화"
+ },
+ {
+  "group": "General",
+  "code": "GE04-06",
+  "kpi": "O",
+  "name": "[KPI] 기술지원"
+ },
+ {
+  "group": "General",
+  "code": "GE05-05",
+  "kpi": "O",
+  "name": "[KPI] 현장지원 (설계/기술)"
+ },
+ {
+  "group": "General",
+  "code": "GA11-22",
+  "kpi": "X",
+  "name": "[Non-KPI] 팀장회의(실별)"
+ },
+ {
+  "group": "General",
+  "code": "GA11-02",
+  "kpi": "X",
+  "name": "[Non-KPI] 임원 및 팀장회의"
+ },
+ {
+  "group": "Project",
+  "code": "PF02-02",
+  "kpi": "O",
+  "name": "[KPI] KOM (Kick-Off Meeting)"
+ },
+ {
+  "group": "General",
+  "code": "GF01-06",
+  "kpi": "O",
+  "name": "[KPI] Vendor 등록"
+ },
+ {
+  "group": "General",
+  "code": "GC02-02",
+  "kpi": "O",
+  "name": "[KPI] Technical Proposal"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-65",
+  "kpi": "O",
+  "name": "[KPI] Clarification"
+ },
+ {
+  "group": "Project",
+  "code": "PF01-01",
+  "kpi": "O",
+  "name": "[KPI] MR (Material Requisition)"
+ },
+ {
+  "group": "General",
+  "code": "GB02-05",
+  "kpi": "O",
+  "name": "[KPI] ITB 분석"
+ },
+ {
+  "group": "General",
+  "code": "GC02-03",
+  "kpi": "O",
+  "name": "[KPI] Technical Clarification (Pre-Bid & Post-Bid)"
+ },
+ {
+  "group": "General",
+  "code": "GE05-03",
+  "kpi": "O",
+  "name": "[KPI] Document Control"
+ },
+ {
+  "group": "General",
+  "code": "GE04-01",
+  "kpi": "O",
+  "name": "[KPI] General Supervision & Duties"
+ },
+ {
+  "group": "General",
+  "code": "GA07-17",
+  "kpi": "X",
+  "name": "[Non-KPI] 팀 일반 업무 수행"
+ },
+ {
+  "group": "Project",
+  "code": "PE05-01",
+  "kpi": "O",
+  "name": "[KPI] Equipment 3D Model"
+ },
+ {
+  "group": "General",
+  "code": "GA02-04",
+  "kpi": "O",
+  "name": "[KPI] 팀 전략과제 수행"
+ },
+ {
+  "group": "General",
+  "code": "GA08-01",
+  "kpi": "O (매뉴얼/하자표준서) / X(일반사내표준)",
+  "name": "[Non-KPI] 절차서"
+ },
+ {
+  "group": "General",
+  "code": "GA24-04",
+  "kpi": "O",
+  "name": "[KPI] VE 검증 및 적용"
+ },
+ {
+  "group": "Project",
+  "code": "PE04-53",
+  "kpi": "O",
+  "name": "[KPI] VP Review & Control"
+ },
+ {
+  "group": "Project",
+  "code": "PF01-04",
+  "kpi": "O",
+  "name": "[KPI] TBE (Technical Bid Evaluation)"
+ },
+ {
+  "group": "General",
+  "code": "GA24-06",
+  "kpi": "O",
+  "name": "[KPI] VE 발굴"
+ },
+ {
+  "group": "General",
+  "code": "GA07-20",
+  "kpi": "O",
+  "name": "[KPI] 매뉴얼(표준/부서) 작성"
+ },
+ {
+  "group": "General",
+  "code": "GA07-21",
+  "kpi": "O",
+  "name": "[KPI] Pi Point 발굴 및 표준화"
+ },
+ {
+  "group": "General",
+  "code": "GA07-22",
+  "kpi": "O",
+  "name": "[KPI] 아웃룩 일정 관리 및 피드백"
+ }
+]
