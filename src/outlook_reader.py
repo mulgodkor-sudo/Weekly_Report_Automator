@@ -201,10 +201,12 @@ def _st_window_hours(e: dict, hm) -> float:
     return min(_round_half(max(overlap, 0.0)), e["hours"])
 
 
-def assign_st_ot(events: list[dict]) -> None:
+def assign_st_ot(events: list[dict], fixed=None, per_day: dict | None = None) -> None:
     """
     각 이벤트에 st_hours / ot_hours / st_start(그날 출근시각 "07:30" 등) 기록 (in-place).
-      - 평일: 그날 시차출퇴근 시각을 자동 판단(pick_flex_start) → 근무구간 안 = ST, 밖 = OT
+      fixed   : 사용자가 고른 출근시각 (h, m) — 모든 평일에 적용. None 이면 자동 판단
+      per_day : {date: (h, m)} 특정 날짜만 사용자가 고른 출근시각 (fixed 보다 우선)
+      - 평일: 그날 출근시각(per_day → fixed → 자동 판단 pick_flex_start) → 근무구간 안 = ST, 밖 = OT
       - 토·일은 전부 OT
       - 하루 ST는 최대 8H: 같은 날·같은 태그의 일정을 시작시각 순으로 누적해
         8H를 넘는 부분은 OT로 넘김 (예: 점심시간 회의)
@@ -214,7 +216,11 @@ def assign_st_ot(events: list[dict]) -> None:
         groups.setdefault((e["date"], e.get("tag")), []).append(e)
 
     for (date, _tag), evs in groups.items():
-        hm = pick_flex_start(date, evs) if date.weekday() < 5 else None
+        if date.weekday() >= 5:
+            hm = None
+        else:
+            hm = ((per_day or {}).get(date.date()) or fixed
+                  or pick_flex_start(date, evs))
         used = 0.0
         for e in sorted(evs, key=lambda x: x.get("start") or x["date"]):
             st = min(_st_window_hours(e, hm), max(ST_DAILY_H - used, 0.0))
