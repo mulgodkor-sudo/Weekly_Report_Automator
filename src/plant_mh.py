@@ -21,7 +21,9 @@ C_GRID     = "#BFBFBF"   # 테두리
 C_OT_BG    = "#CCEB9E"   # OT 칸 연두색
 C_WEEKEND  = "#E00000"   # 토·일 머리글 글씨
 C_TOTAL_BG = "#FFE699"   # 합계 행
-NOTE = "※ ST: 평일 08:30~17:30 (하루 최대 8H)  |  OT: 그 외 시간 및 토·일"
+NOTE = ("※ ST: 평일 출근~퇴근 9시간 중 최대 8H (출근 07:30~09:30 시차출퇴근은 그날 일정으로 자동 판단)"
+        "  |  OT: 그 외 시간 및 토·일")
+C_FLEX     = "#1F4E79"   # 08:30 이 아닌 시차출퇴근 표시 글씨
 
 
 def to_date(d) -> date:
@@ -78,6 +80,15 @@ def aggregate(rows: list[dict]) -> list[dict]:
     return items
 
 
+def day_starts(rows: list[dict]) -> dict:
+    """{날짜: 그날 출근시각 "07:30"} — 시차출퇴근 자동 판단 결과 (평일, 실적 있는 날만)"""
+    out: dict = {}
+    for r in rows:
+        if r.get("source") == "this_week" and r.get("st_start"):
+            out.setdefault(to_date(r["date"]), r["st_start"])
+    return out
+
+
 def day_totals(items: list[dict], dates: list[date]) -> dict:
     tot = {d: [0.0, 0.0] for d in dates}
     for it in items:
@@ -108,7 +119,9 @@ FIXED_HDRS   = ["No.", "구분", "Project\nCode", "Func. Code", "Description"]
 FIXED_WIDTHS = [5, 9, 10, 11, 32]
 
 
-def write_sheet(wb, ws, items: list[dict], dates: list[date]) -> None:
+def write_sheet(wb, ws, items: list[dict], dates: list[date],
+                starts: dict | None = None) -> None:
+    starts = starts or {}
     base = {"font_name": "맑은 고딕", "font_size": 9, "border": 1,
             "border_color": C_GRID, "align": "center", "valign": "vcenter"}
 
@@ -117,6 +130,8 @@ def write_sheet(wb, ws, items: list[dict], dates: list[date]) -> None:
 
     hdr     = F(bold=True, bg_color=C_HDR_BG, text_wrap=True)
     hdr_we  = F(bold=True, bg_color=C_HDR_BG, font_color=C_WEEKEND)
+    hdr_s   = F(bg_color=C_HDR_BG, font_size=8, font_color="#595959")
+    hdr_sf  = F(bold=True, bg_color=C_HDR_BG, font_size=8, font_color=C_FLEX)
     txt     = F()
     txt_l   = F(align="left")
     num_st  = F(num_format="0.##;-0.##;0")
@@ -131,7 +146,7 @@ def write_sheet(wb, ws, items: list[dict], dates: list[date]) -> None:
     c_st  = nf + 2 * len(dates)       # ST TOTAL 열
     c_ot  = c_st + 1                  # OT TOTAL 열
     H0    = 1                         # 머리글 시작 행 (0행은 안내문)
-    D0    = H0 + 4                    # 데이터 시작 행
+    D0    = H0 + 5                    # 데이터 시작 행 (머리글 5단: 년월/요일/일/출근/ST·OT)
 
     ws.write(0, 0, NOTE, note)
 
@@ -154,8 +169,10 @@ def write_sheet(wb, ws, items: list[dict], dates: list[date]) -> None:
         fm = hdr_we if d.weekday() >= 5 else hdr
         ws.merge_range(H0 + 1, c, H0 + 1, c + 1, DAY_KO[d.weekday()], fm)
         ws.merge_range(H0 + 2, c, H0 + 2, c + 1, d.day, fm)
-        ws.write(H0 + 3, c,     "ST", fm)
-        ws.write(H0 + 3, c + 1, "OT", fm)
+        s = starts.get(d, "")
+        ws.merge_range(H0 + 3, c, H0 + 3, c + 1, s, hdr_sf if s and s != "08:30" else hdr_s)
+        ws.write(H0 + 4, c,     "ST", fm)
+        ws.write(H0 + 4, c + 1, "OT", fm)
     ws.merge_range(H0, c_st, D0 - 1, c_st, "ST\nTOTAL", hdr)
     ws.merge_range(H0, c_ot, D0 - 1, c_ot, "OT\nTOTAL", hdr)
 
@@ -196,8 +213,9 @@ def write_sheet(wb, ws, items: list[dict], dates: list[date]) -> None:
     ws.freeze_panes(D0, nf)
 
 
-def save_workbook(path: str, items: list[dict], dates: list[date]) -> None:
+def save_workbook(path: str, items: list[dict], dates: list[date],
+                  starts: dict | None = None) -> None:
     import xlsxwriter
     wb = xlsxwriter.Workbook(path)
-    write_sheet(wb, wb.add_worksheet("Plant MH"), items, dates)
+    write_sheet(wb, wb.add_worksheet("Plant MH"), items, dates, starts)
     wb.close()

@@ -141,6 +141,7 @@ def build_rows(this_week: list[dict], next_week: list[dict]) -> list[dict]:
                 this_week_h    = ev["hours"],
                 this_week_st   = ev.get("st_hours", ev["hours"]),
                 this_week_ot   = ev.get("ot_hours", 0.0),
+                st_start       = ev.get("st_start", ""),   # 그날 출근시각(시차출퇴근 자동 판단)
                 next_week_h    = 0.0,
                 highlight      = False,   # 노란 음영 제거
                 source         = "this_week",
@@ -243,18 +244,25 @@ def get_warnings(
         if w: warns.append(w)
 
     # ── 날짜별 ST / OT 점검 (이번주 실적) ─────────────────────────
-    # ST: 평일 08:30~17:30 (하루 최대 8H) / OT: 그 외 시간, 토·일 전체
+    # ST: 평일 출근~퇴근 9시간 중 최대 8H (시차출퇴근 자동 판단) / OT: 그 외 시간, 토·일 전체
     DAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
     by_day: dict = {}
+    starts: dict = {}
     for e in this_week_raw:
         if e.get("tag") != "실적":
             continue
         st_ot = by_day.setdefault(e["date"].date(), [0.0, 0.0])
         st_ot[0] += e.get("st_hours", e["hours"])
         st_ot[1] += e.get("ot_hours", 0.0)
+        if e.get("st_start"):
+            starts[e["date"].date()] = e["st_start"]
     for d in sorted(by_day):
         st, ot = by_day[d]
         day_str = f"{d.strftime('%m월 %d일')}({DAY_KO[d.weekday()]})"
+        s = starts.get(d, "")
+        if s and s != "08:30":
+            h, m = map(int, s.split(":"))
+            warns.append(f"ℹ️  {day_str} - 시차출퇴근 {s}~{h + 9:02d}:{m:02d} 적용 (첫 일정 기준 자동 판단)")
         # 일별 모드(기준 8H)는 위 합계 경고와 중복되므로 ST 미만 경고 생략
         if d.weekday() < 5 and st < 8.0 and this_expected > 8.0:
             warns.append(f"⚠️  {day_str} - 정규시간(ST) {st:.1f}H  ←  8H 미만. 시간 재확인 필요")

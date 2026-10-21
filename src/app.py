@@ -108,15 +108,27 @@ class WeeklyReportApp:
         except Exception as e:
             self._set_status(f"FC 로드 실패: {e}")
             return
+        self._sync_fc_path()
         self._set_status(self._fc_status_text())
+
+    def _sync_fc_path(self):
+        """드라이브 문자를 자동 보정해 읽은 경우, 보정된 경로를 설정에 저장"""
+        from config import get_fc_path, get_fc_status
+        path = get_fc_path()
+        if get_fc_status()[0] == "excel" and path and path != self.v_fc_path.get().strip():
+            self.v_fc_path.set(path)
+            self._cfg["func_code_excel_path"] = path
+            save_config(self._cfg)
 
     def _fc_status_text(self) -> str:
         """상태바용 FC 로드 결과 문구"""
-        from config import get_fc, get_fc_status
+        from config import get_fc, get_fc_status, get_fc_path, get_fc_cache_info
         src, why = get_fc_status()
         n = len(get_fc())
         if src == "excel":
-            return f"FC 로드 완료  ({n}개, {os.path.basename(self.v_fc_path.get().strip())})"
+            return f"FC 로드 완료  ({n}개, {os.path.basename(get_fc_path())})"
+        if src == "cache":
+            return f"⚠ {why} → 마지막 ECM 사본 사용 ({n}개, {get_fc_cache_info()})"
         if src == "default":
             return f"⚠ {why} → 내장 기본 목록 사용 ({n}개)"
         return f"⚠ {why or 'FC 엑셀 파일 경로를 설정하세요'}"
@@ -499,17 +511,21 @@ class WeeklyReportApp:
         except Exception as e:
             messagebox.showerror("FC 로드 오류", str(e))
             return
-        from config import get_fc_status
+        from config import get_fc_status, get_fc_cache_info
         src, why = get_fc_status()
         if src != "excel":
             # 경로는 저장하지 않음 (읽을 수 없는 파일)
             self._set_status(self._fc_status_text())
+            fallback = (f"마지막으로 ECM에서 읽은 사본({get_fc_cache_info()})으로 계속 사용합니다."
+                        if src == "cache" else "내장 기본 목록으로 계속 사용합니다.")
             messagebox.showwarning(
                 "FC 로드 확인",
-                f"{why}\n\n내장 기본 목록으로 계속 사용합니다.\n"
+                f"{why}\n\n{fallback}\n"
                 "엑셀 파일 첫 15행 안에 '구분 / CODE / KPI / 업무명' 머리글이 있는지 확인하세요.")
             return
-        self._cfg["func_code_excel_path"] = path
+        from config import get_fc_path
+        self.v_fc_path.set(get_fc_path())          # 드라이브 문자 자동 보정 반영
+        self._cfg["func_code_excel_path"] = get_fc_path()
         save_config(self._cfg)
         self._set_status(self._fc_status_text().replace("로드 완료", "재로드 완료"))
 
@@ -577,9 +593,14 @@ class WeeklyReportApp:
                 warns = get_warnings(this_raw, next_raw, this_expected=this_exp)
 
                 # FC 로드 여부 확인
-                from config import get_fc, get_fc_status
+                from config import get_fc, get_fc_status, get_fc_cache_info
                 fc_src, fc_why = get_fc_status()
-                if fc_src == "default":
+                if fc_src == "cache":
+                    warns.insert(0,
+                        f"⚠️  {fc_why}\n"
+                        f"      마지막으로 ECM에서 읽은 FC 사본({get_fc_cache_info()})을 사용했습니다.\n"
+                        "      ECM 최신 내용 반영을 위해 [상세 설정]의 FC 엑셀 경로 확인 후 🔄FC 재로드를 눌러주세요.")
+                elif fc_src == "default":
                     warns.insert(0,
                         f"⚠️  {fc_why}\n"
                         "      내장 기본 목록으로 업무명·구분을 채웠습니다. 최신 코드 반영을 위해\n"

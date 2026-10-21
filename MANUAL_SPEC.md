@@ -339,15 +339,16 @@ KPI 컬럼 파싱:
 - 그 외 → `kpi = False` (`src/config.py:141–142`)
 
 
-### 9-2. FC 목록 불러오기 실패 시 (v1.21)
+### 9-2. FC 목록 기준 및 불러오기 실패 시 (v1.21)
 
-- FC 엑셀은 **모든 시트**에서 머리글을 찾는다 (다른 시트가 열린 상태로 저장돼도 인식)
-- `CODE` 칸이 비어 있으면(수식 결과값 미저장 등) `Level 1` + "-" + `Level 2`로 코드를 구성
-- 경로 미설정 / 파일 없음 / 코드 0개일 때는 **내장 기본 목록 `src/fc_default.json`(50개 코드)**으로
-  업무명(Description)·구분을 채우고, 이유를 상태바·사전 검토·M/H 확인 창(빨간 글씨)에 표시
-- 상태바: `FC 로드 완료 (N개, 파일명)` / `⚠ {이유} → 내장 기본 목록 사용 (50개)`
+- **기준은 항상 ECM 의 FC 엑셀** — 프로그램 시작·🔄FC 재로드 때마다 새로 읽으므로 ECM 내용이 바뀌면 그대로 반영
+- 경로에 파일이 없으면 **같은 경로를 다른 드라이브 문자로 자동 검색**(사람마다 ECM 드라이브 연결 문자가 다른 경우),
+  찾으면 그 경로를 설정에 저장
+- FC 엑셀은 **모든 시트**에서 머리글을 찾고, `CODE` 칸이 비어 있으면 `Level 1` + "-" + `Level 2`로 코드 구성
+- ECM 엑셀을 읽을 때마다 사본 저장: `Documents\WeeklyReportAutomaker_fc_cache.json` (읽은 시각·원본 경로 포함)
+- ECM 엑셀을 못 읽을 때 사용 순서: ① 마지막 ECM 사본(“YYYY-MM-DD HH:MM ECM 기준” 표시) → ② 내장 목록 `src/fc_default.json`(최후 수단)
+- 어느 경우든 이유를 상태바·사전 검토·M/H 확인 창(빨간 글씨)에 표시, 상태바에 불러온 코드 개수 표시
 - FC 목록에 없는 코드는 M/H 확인 창·Plant MH 시트 Description에 `(FC 목록에 없는 코드)`로 표시
-- FC 엑셀에 코드가 추가되면 `src/fc_default.json`도 함께 갱신해 두면 경로 문제가 있어도 최신 목록 사용
 
 ---
 
@@ -525,94 +526,25 @@ error_message: '목록에서 선택하세요'
   - 토·일 머리글 빨간 글씨, **OT 칸 연두색**
   - 일정이 있는 날은 0도 표시 (예: ST `3` / OT `0`), 소수는 `3.5`, 정수는 `3`
 - 오른쪽 끝: `ST TOTAL` / `OT TOTAL`, 마지막 행 `합  계` (배경 `#FFE699`)
-- 하단: 기간·ST/OT 합계, 안내 `"※ ST: 평일 08:30~17:30 (하루 최대 8H)  |  OT: 그 외 시간 및 토·일"`
+- 날짜 머리글 4번째 줄 = 그날 판단된 출근시각 (08:30 은 회색, 시차출퇴근은 파란 굵은 글씨)
+- 하단: 기간·ST/OT 합계, FC 목록 상태(빨간 글씨), 안내 `"※ ST: 평일 출근~퇴근 9시간 중 최대 8H (출근 07:30~09:30 시차출퇴근은 그날 일정으로 자동 판단)  |  OT: 그 외 시간 및 토·일"`
 - 버튼: `"📄  Excel 저장"` (조회 결과가 있을 때 활성), `"✅  닫기"`
   - 기본 파일명 `PlantMH_{시작일YYYYMMDD}-{종료일YYYYMMDD}.xlsx`, 시트명 `Plant MH`
   - Excel도 화면과 같은 배치 (4단 머리글 병합, OT 연두색, 토·일 빨간 글씨, 틀 고정)
 
-### 12-3. ST / OT 계산 규칙 (`src/outlook_reader.py` `assign_st_ot()`)
+### 12-3. ST / OT 계산 규칙 (`src/outlook_reader.py` `assign_st_ot()`, `pick_flex_start()`)
 
-1. 평일 일정 중 **08:30~17:30 구간과 겹치는 시간 → ST**, 구간 밖 시간 → OT (30분 단위 반올림)
-2. **토·일 일정은 전부 OT**
-3. 종일 일정(AllDayEvent, 예: 휴가)은 평일이면 8H 전부 ST
-4. **하루 ST는 최대 8H**: 같은 날 일정을 시작시각 순으로 누적해 8H를 넘는 부분은 OT로 넘김
-   (예: 점심시간 회의로 구간 안 합계가 9H → 그날 마지막 일정에서 1H가 OT)
-5. 점심시간은 별도로 설정하지 않음 (점심시간에는 일정을 넣지 않는 것을 전제)
-
-## 13. 월간업무정리 (monthly_dialog.py / monthly_processor.py)
-
-### 13-1. 처리 로직
-
-`monthly_processor.process_monthly()` (`src/monthly_processor.py:56–154`)
-
-- 입력: `[실적]` 이벤트 (`src/monthly_processor.py:76`)
-- **휴가/공가 FC**: `HOLIDAY_FC = "GE04-02"` — 별도 집계 (`src/monthly_processor.py:17`)
-- 그룹화 키: `(project_code, func_code, normalized_subject)` (`src/monthly_processor.py:92`)
-- 본문 별표 제거: `*` 이후 전체 삭제 (`src/monthly_processor.py:38–43`)
-- **같은 날 + 같은 내용**: 시간 합산 (`src/monthly_processor.py:115`)
-- **다른 날 + 같은 내용**: 날짜 목록에 추가 (별도 행 아님) (`src/monthly_processor.py:114`)
-
-### 13-2. 정렬 순서
-
-구분 우선순위: `수행(KPI)=0`, `입찰=1`, `기타(KPI)=2`, `기타=3` → 매뉴얼 류 인접 → PC → FC → 제목 (`src/monthly_processor.py:143–149`)
-
-매뉴얼 류 키워드: `["표준서", "메뉴얼", "매뉴얼", "절차서"]` (`src/monthly_processor.py:18`)
-
-### 13-3. 다이얼로그 (MonthlyDialog)
-
-- 창 제목: `"월간 업무 정리"` (`src/monthly_dialog.py:32`)
-- 창 크기: `1080x760`, 최소 `860x480` (`src/monthly_dialog.py:33–34`)
-- 타이틀 바 텍스트: `"  📋  월간 업무 정리"` (`src/monthly_dialog.py:45`)
-
-#### 기간 설정 섹션
-
-- 섹션 제목: `"  📅  기간 설정"` (`src/monthly_dialog.py:55`)
-- 레이블: `"시작일 :"`, `" ~ 종료일 :"` (`src/monthly_dialog.py:59, 63`)
-- 자동 입력: 전월 1일~말일 (`src/monthly_dialog.py:155–162`)
-- 수정 가능 형식: `YYYY-MM-DD` (`src/monthly_dialog.py:83`)
-- 버튼: `"🔍  불러오기"` (`src/monthly_dialog.py:70`)
-- 힌트: `"* 전월 날짜 자동 입력 / YYYY-MM-DD 형식으로 수정 가능 / Non-KPI 순서는 FC 엑셀 파일 기준"` (`src/monthly_dialog.py:82–83`)
-
-#### 결과 Treeview 섹션
-
-- 섹션 제목: `"  📊  결과  (같은 내용은 날짜 병합 / 별표 이후 내용 제거)"` (`src/monthly_dialog.py:88`)
-- 컬럼: `구분`, `Project Code`, `FC`, `업무명`, `날짜`, `수행내용`, `시간` (`src/monthly_dialog.py:94`)
-- 행 색상: odd=흰색, even=`#F0F4FF`, subtotal=`#FFE699`, holiday=`#FCE4EC`, grand_total=`#1F4E79`(흰 글씨) (`src/monthly_dialog.py:111–118`)
-- 소계 레이블: `"소  계"` (`src/monthly_dialog.py:238`)
-- 월간 총 합계 레이블: `"★  월간 총 합계"` (`src/monthly_dialog.py:253`)
-- PC/FC 별 소요시간 헤더: `"[ PC / FC 별 소요시간 ]"` (`src/monthly_dialog.py:262`)
-- 상태바 형식: `"업무 그룹 {N}건  |  휴가/공가 {H:.1f}H"` (`src/monthly_dialog.py:207`)
-
-#### 하단 버튼
-
-- `"✅  닫기"` — 배경 `#455A64` (`src/monthly_dialog.py:134–141`)
-- `"📄  Excel 저장"` — 배경 `#1F5E20`, 초기 **비활성**, 불러오기 성공 후 활성화 (`src/monthly_dialog.py:143–153`)
-
-### 13-4. Excel 저장 (월간업무정리)
-
-- 기본 파일명: `f"월간업무정리_{년도}년{월}월.xlsx"` (예: `월간업무정리_2025년6월.xlsx`) (`src/monthly_dialog.py:295`)
-- 저장 후 바로 열기 여부 묻는 대화상자 (`src/monthly_dialog.py:300–303`)
-
-#### 시트 구성
-
-| 시트명 | 내용 | 근거 |
-|--------|------|------|
-| `월간업무정리` | 상세 업무 목록 | `src/monthly_dialog.py:340` |
-| `PC_FC별 소요시간` | (구분, PC, FC) 별 시간 요약 | `src/monthly_dialog.py:436` |
-
-#### 월간업무정리 시트 컬럼
-
-`구분`, `Project Code`, `FC`, `업무명`, `날짜`, `수행내용`, `시간(H)` (`src/monthly_dialog.py:375`)
-
-- 타이틀 행: `f"월간 업무 정리  —  {년도}년 {월}월"` (`src/monthly_dialog.py:372`)
-- 소계 레이블: `"소  계"` (`src/monthly_dialog.py:403`)
-- 총합계 행: `f"★  {년도}년 {월}월  월간 총 업무 시간"` (`src/monthly_dialog.py:431`)
-
-#### PC_FC별 소요시간 시트 컬럼
-
-`구분`, `Project Code`, `FC`, `업무명(FC 기준)`, `시간(H)` (`src/monthly_dialog.py:454`)
-
-- 합계 행 레이블: `"월간 총 업무 시간"` (`src/monthly_dialog.py:509`)
+1. **시차출퇴근 자동 판단** (평일, 날짜별): 출근 07:30 / 08:00 / 08:30 / 09:00 / 09:30 중
+   - 그날 [실적] 일정이 근무구간(출근~+9시간, 점심 1시간 포함)에 **가장 많이 들어가는 시각**을 선택
+   - 같으면 그날 **첫 일정 시작시각에 가장 가까운** 시각, 시간 지정 일정이 없으면(종일 일정만) 08:30
+   - 예) 첫 일정 08:30 → 08:30~17:30 / 첫 일정 07:30 → 07:30~16:30 /
+     06:30 이른 회의 후 08:30부터 근무 → 08:30~17:30 (06:30~07:30 은 OT)
+2. 근무구간과 겹치는 시간 → ST, 구간 밖 시간 → OT (30분 단위 반올림)
+3. **토·일 일정은 전부 OT**
+4. 종일 일정(AllDayEvent, 예: 휴가)은 평일이면 8H 전부 ST
+5. **하루 ST는 최대 8H**: 같은 날 일정을 시작시각 순으로 누적해 8H를 넘는 부분은 OT로 넘김
+6. 점심시간은 별도로 설정하지 않음 (점심시간에는 일정을 넣지 않는 것을 전제)
+7. 08:30 이 아닌 날은 사전 검토에 `ℹ️ 10월 23일(금) - 시차출퇴근 07:30~16:30 적용` 으로 표시
 
 ---
 

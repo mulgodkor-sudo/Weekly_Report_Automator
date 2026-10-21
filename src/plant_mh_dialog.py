@@ -43,6 +43,7 @@ class PlantMHDialog(tk.Toplevel):
         self.v_end   = tk.StringVar(value=end)
         self._items: list[dict] = []
         self._dates: list = []
+        self._starts: dict = {}          # {날짜: 출근시각} 시차출퇴근 자동 판단 결과
 
         self._build()
         self._load()
@@ -189,8 +190,9 @@ class PlantMHDialog(tk.Toplevel):
                 from outlook_reader  import get_events
                 from event_processor import process_this_week, build_rows
                 rows  = build_rows(process_this_week(get_events(start, show_end)), [])
-                items = pm.aggregate(rows)
-                self.after(0, lambda: self._on_ok(items, dates))
+                items  = pm.aggregate(rows)
+                starts = pm.day_starts(rows)
+                self.after(0, lambda: self._on_ok(items, dates, starts))
             except Exception as e:
                 msg = f"{e}\n\n{traceback.format_exc()}"
                 self.after(0, lambda: self._on_err(msg))
@@ -201,12 +203,12 @@ class PlantMHDialog(tk.Toplevel):
 
         threading.Thread(target=task, daemon=True).start()
 
-    def _on_ok(self, items, dates):
+    def _on_ok(self, items, dates, starts=None):
         if not self.winfo_exists():
             return
         self.progress.stop()
         self.btn_load.config(state="normal")
-        self._items, self._dates = items, dates
+        self._items, self._dates, self._starts = items, dates, starts or {}
         try:
             self._render()
         except Exception as e:
@@ -221,7 +223,10 @@ class PlantMHDialog(tk.Toplevel):
         from config import get_fc_status
         fc_src, fc_why = get_fc_status()
         fc_note = ""
-        if fc_src == "default":
+        if fc_src == "cache":
+            from config import get_fc_cache_info
+            fc_note = f"   ⚠ ECM 엑셀 미연결 - 마지막 사본({get_fc_cache_info()}) 사용"
+        elif fc_src == "default":
             fc_note = "   ⚠ FC 엑셀 미사용(내장 목록) - " + fc_why[:70]
         elif fc_src == "none":
             fc_note = "   ⚠ Description 없음 - " + (fc_why or "FC 엑셀 파일 경로를 설정하세요")[:70]
@@ -267,7 +272,8 @@ class PlantMHDialog(tk.Toplevel):
         probe = tk.Label(self, text="가Ag", font=FONT_B, pady=0, bd=0)
         row_h = probe.winfo_reqheight() + 4
         probe.destroy()
-        n_rows = 4 + len(items) + 1
+        HR     = 5                           # 머리글 5단: 년월/요일/일/출근/ST·OT
+        n_rows = HR + len(items) + 1
         prev   = getattr(self, "_n_rows_prev", 0)
         for fr in (L, R):
             for r in range(max(n_rows, prev)):
@@ -278,7 +284,7 @@ class PlantMHDialog(tk.Toplevel):
         # ── 왼쪽 고정 머리글 (4단 병합) ──
         for ci, (hd, w) in enumerate(zip(["No.", "구분", "Project\nCode",
                                           "Func. Code", "Description"], FIXED_W)):
-            self._cell(L, 0, ci, hd, w=w, bg=H, bold=True, rs=4)
+            self._cell(L, 0, ci, hd, w=w, bg=H, bold=True, rs=HR)
 
         # ── 오른쪽 날짜 머리글 ──
         for lbl, i0, i1 in pm.month_groups(dates):
@@ -287,15 +293,19 @@ class PlantMHDialog(tk.Toplevel):
             fg = pm.C_WEEKEND if d.weekday() >= 5 else "black"
             self._cell(R, 1, 2 * i, pm.DAY_KO[d.weekday()], bg=H, fg=fg, bold=True, cs=2)
             self._cell(R, 2, 2 * i, str(d.day),             bg=H, fg=fg, bold=True, cs=2)
-            self._cell(R, 3, 2 * i,     "ST", bg=H, fg=fg, bold=True)
-            self._cell(R, 3, 2 * i + 1, "OT", bg=H, fg=fg, bold=True)
+            s = self._starts.get(d, "")
+            flex = bool(s) and s != "08:30"
+            self._cell(R, 3, 2 * i, s, bg=H, fg=pm.C_FLEX if flex else "#595959",
+                       bold=flex, cs=2)
+            self._cell(R, 4, 2 * i,     "ST", bg=H, fg=fg, bold=True)
+            self._cell(R, 4, 2 * i + 1, "OT", bg=H, fg=fg, bold=True)
         c_st = 2 * len(dates)
-        self._cell(R, 0, c_st,     "ST\nTOTAL", w=TOTAL_W, bg=H, bold=True, rs=4)
-        self._cell(R, 0, c_st + 1, "OT\nTOTAL", w=TOTAL_W, bg=H, bold=True, rs=4)
+        self._cell(R, 0, c_st,     "ST\nTOTAL", w=TOTAL_W, bg=H, bold=True, rs=HR)
+        self._cell(R, 0, c_st + 1, "OT\nTOTAL", w=TOTAL_W, bg=H, bold=True, rs=HR)
 
         # ── 데이터 ──
         for ri, it in enumerate(items):
-            r = 4 + ri
+            r = HR + ri
             for ci, (v, w) in enumerate(zip(
                     [str(ri + 1), it["gubun"], it["pc"], it["fc"], it["desc"]], FIXED_W)):
                 self._cell(L, r, ci, v, w=w, anchor="w" if ci == 4 else "center")
@@ -308,7 +318,7 @@ class PlantMHDialog(tk.Toplevel):
             self._cell(R, r, c_st + 1, pm.fmt_h(it["ot_total"]), w=TOTAL_W)
 
         # ── 합계 ──
-        tr  = 4 + len(items)
+        tr  = HR + len(items)
         T   = pm.C_TOTAL_BG
         tot = pm.day_totals(items, dates)
         self._cell(L, tr, 0, "합  계", w=1, bg=T, bold=True, cs=len(FIXED_W))
@@ -342,7 +352,7 @@ class PlantMHDialog(tk.Toplevel):
         if not path:
             return
         try:
-            pm.save_workbook(path, self._items, self._dates)
+            pm.save_workbook(path, self._items, self._dates, self._starts)
         except PermissionError:
             messagebox.showerror("파일 열림",
                                  f"파일이 열려 있습니다. Excel을 닫고 다시 시도하세요.\n{path}",

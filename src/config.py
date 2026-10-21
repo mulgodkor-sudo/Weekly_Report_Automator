@@ -81,11 +81,19 @@ CONDITIONAL_CODES = {"GA11-25", "GA08-01"}
 
 # ── FC 테이블 (런타임에 동적 로드) ───────────────────────────────────
 _FC: dict[str, dict] = {}
-# 현재 FC 테이블의 출처: "excel"(FC 엑셀) / "default"(내장 기본 목록) / "none"
+# 현재 FC 테이블의 출처
+#   "excel"   : ECM 의 FC 엑셀 (기준)
+#   "cache"   : 마지막으로 ECM 엑셀에서 읽어 둔 사본 (엑셀을 지금 못 읽을 때)
+#   "default" : 프로그램 내장 목록 (사본도 없을 때만, 최후 수단)
+#   "none"
 _FC_SOURCE: str = "none"
 _FC_MESSAGE: str = ""        # 엑셀을 못 쓴 이유 (화면 안내용)
+_FC_PATH: str = ""           # 실제로 읽은 엑셀 경로 (드라이브 문자 자동 보정 결과)
+_FC_CACHE_INFO: str = ""     # 사본 기준 시각 안내 ("2026-10-20 09:12 ECM 기준")
 
-# 내장 기본 FC 목록 — FC 엑셀을 못 읽을 때(경로 다름, 네트워크 드라이브 끊김 등) 사용
+# 마지막으로 ECM 엑셀에서 읽은 내용 사본 (문서 폴더, 사용자별)
+FC_CACHE_FILE = os.path.join(os.path.dirname(CONFIG_FILE), "WeeklyReportAutomaker_fc_cache.json")
+# 내장 기본 FC 목록 — 엑셀도 사본도 없을 때만 사용
 DEFAULT_FC_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fc_default.json")
 
 def find_fc_excel_in_folder(folder: str) -> str | None:
@@ -167,6 +175,62 @@ def load_fc_from_excel(excel_path: str) -> dict[str, dict]:
         wb.close()
     return {}
 
+def resolve_fc_path(path: str) -> str:
+    """
+    FC 엑셀 경로 확인. 없으면 같은 경로를 다른 드라이브 문자로 찾아본다.
+    (ECM 네트워크 드라이브를 사람마다 X:, Y: 등 다른 문자로 연결한 경우 대응)
+    """
+    if not path or os.path.exists(path):
+        return path
+    m = re.match(r"^([A-Za-z]):[\\/](.*)$", path)
+    if m:
+        rest = m.group(2)
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            if letter == m.group(1).upper():
+                continue
+            cand = f"{letter}:/{rest}"
+            try:
+                if os.path.exists(cand):
+                    return cand
+            except OSError:
+                continue
+    return path
+
+def _save_fc_cache(fc: dict[str, dict], path: str) -> None:
+    from datetime import datetime
+    try:
+        mtime = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M")
+    except OSError:
+        mtime = ""
+    data = dict(source=path, file_modified=mtime,
+                loaded_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+                rows=[dict(code=c, group=v["group"], name=v["name"],
+                           kpi=("conditional" if v["kpi"] == "conditional"
+                                else ("O" if v["kpi"] else "X")))
+                      for c, v in fc.items()])
+    try:
+        with open(FC_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+    except OSError:
+        pass
+
+def _rows_to_fc(rows: list[dict]) -> dict[str, dict]:
+    out = {}
+    for r in rows:
+        k = r["kpi"]
+        kpi = "conditional" if k == "conditional" else _kpi_of(r["code"], k)
+        out[r["code"]] = dict(group=r["group"], kpi=kpi, name=r["name"])
+    return out
+
+def _load_fc_cache() -> tuple[dict[str, dict], str]:
+    try:
+        with open(FC_CACHE_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        info = f"{data.get('loaded_at', '')} ECM 기준"
+        return _rows_to_fc(data.get("rows", [])), info
+    except Exception:
+        return {}, ""
+
 def load_default_fc() -> dict[str, dict]:
     """내장 기본 FC 목록 (src/fc_default.json)"""
     try:
@@ -180,12 +244,16 @@ def load_default_fc() -> dict[str, dict]:
 def reload_fc(excel_path: str = "") -> int:
     """
     FC 테이블 재로드 (경로 미입력 시 config.json 참조). 불러온 코드 개수 반환.
-    FC 엑셀을 못 읽으면 내장 기본 목록을 사용하고, 이유를 get_fc_status() 로 알려준다.
+    기준은 항상 ECM 의 FC 엑셀 — 프로그램 시작·🔄FC 재로드 때마다 새로 읽어 ECM 변경을 반영.
+    엑셀을 못 읽을 때만: 마지막으로 ECM 에서 읽은 사본 → 내장 목록 순으로 사용하고,
+    이유를 get_fc_status() 로 알려준다.
     """
-    global _FC, _FC_SOURCE, _FC_MESSAGE
+    global _FC, _FC_SOURCE, _FC_MESSAGE, _FC_PATH, _FC_CACHE_INFO
     if not excel_path:
         cfg = load_config()
         excel_path = cfg.get("func_code_excel_path", "")
+    excel_path = resolve_fc_path(excel_path)
+    _FC_PATH, _FC_CACHE_INFO = excel_path, ""
 
     fc, msg = {}, ""
     if not excel_path:
@@ -203,18 +271,32 @@ def reload_fc(excel_path: str = "") -> int:
 
     if fc:
         _FC, _FC_SOURCE, _FC_MESSAGE = fc, "excel", ""
+        _save_fc_cache(fc, excel_path)
+        return len(_FC)
+
+    _FC_MESSAGE = msg
+    cache, info = _load_fc_cache()
+    if cache:
+        _FC, _FC_SOURCE, _FC_CACHE_INFO = cache, "cache", info
     else:
         _FC = load_default_fc()
         _FC_SOURCE = "default" if _FC else "none"
-        _FC_MESSAGE = msg
     return len(_FC)
 
 def get_fc() -> dict[str, dict]:
     return _FC
 
 def get_fc_status() -> tuple[str, str]:
-    """(출처 "excel"/"default"/"none", 엑셀을 못 쓴 이유)"""
+    """(출처 "excel"/"cache"/"default"/"none", 엑셀을 못 쓴 이유)"""
     return _FC_SOURCE, _FC_MESSAGE
+
+def get_fc_path() -> str:
+    """실제로 사용한 FC 엑셀 경로 (드라이브 문자 자동 보정 결과)"""
+    return _FC_PATH
+
+def get_fc_cache_info() -> str:
+    """사본 사용 시 기준 시각 안내"""
+    return _FC_CACHE_INFO
 
 # ── 구분(C열) 결정 ───────────────────────────────────────────────────
 def get_gubun(func_code: str, title: str = "",
