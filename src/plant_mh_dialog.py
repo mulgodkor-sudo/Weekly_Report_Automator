@@ -31,6 +31,8 @@ FLEX_CHOICES = [(FLEX_AUTO, None)] + [
 C_MANUAL     = "#C55A11"   # 날짜별로 직접 바꾼 출근시각 표시
 C_PICK_BG    = "#FFFFFF"   # 클릭해서 바꿀 수 있는 출근시각 칸 바탕
 C_PICK_HOVER = "#DDEBF7"   # 마우스를 올렸을 때
+C_TOGGLE_BG    = "#E4E4E4"   # 위쪽 접기/펼치기 줄
+C_TOGGLE_HOVER = "#C9D9EE"
 
 FONT      = ("맑은 고딕", 9)
 FONT_B    = ("맑은 고딕", 9, "bold")
@@ -75,6 +77,7 @@ class PlantMHDialog(tk.Toplevel):
         # ── 타이틀 바 ──────────────────────────────────────────────
         bar = tk.Frame(self, bg="#1F4E79", height=40)
         bar.pack(fill="x")
+        self._bar = bar
         bar.pack_propagate(False)
         tk.Label(bar, text="  📊  Plant M/H 입력 확인  ([실적] 기준)",
                  font=("맑은 고딕", 11, "bold"),
@@ -89,6 +92,7 @@ class PlantMHDialog(tk.Toplevel):
         # ── 조회 기간 ──────────────────────────────────────────────
         fr_d = ttk.LabelFrame(self, text="  📅  조회 기간", padding=(10, 5))
         fr_d.pack(fill="x", padx=12, pady=(8, 0))
+        self._fr_d = fr_d
 
         P = dict(padx=6, pady=3)
         ttk.Label(fr_d, text="시작일 :").grid(row=0, column=0, sticky="e", **P)
@@ -99,7 +103,7 @@ class PlantMHDialog(tk.Toplevel):
                   font=("맑은 고딕", 10)).grid(row=0, column=3, sticky="w", **P)
 
         self.btn_load = tk.Button(
-            fr_d, text="🔍  불러오기", command=self._load,
+            fr_d, text="🔍  불러오기", command=lambda: self._load(collapse=True),
             font=("맑은 고딕", 10, "bold"),
             bg="#1F4E79", fg="white",
             activebackground="#2E75B6", activeforeground="white",
@@ -128,8 +132,25 @@ class PlantMHDialog(tk.Toplevel):
                   foreground="gray", font=("맑은 고딕", 8)).pack(side="left", padx=8)
 
         # ── 표 영역: 왼쪽 고정 + 오른쪽 가로 스크롤 ─────────────────
+        # ── 위쪽(제목 줄 + 조회 기간) 접기/펼치기 줄 ─────────────────
+        #   [불러오기] 로 조회가 끝나면 위쪽을 접어 날짜·표만 보이게 함 (처음 열 때는 펼친 상태)
+        #   접힌 뒤에는 가운데 ▼ 를 눌러 다시 펼치고, 펼친 상태에서는 ▲ 로 다시 접음
+        self._collapsed = False
+        self._collapse_pending = False
+        self.fr_toggle = tk.Frame(self, bg=C_TOGGLE_BG, height=16, cursor="hand2")
+        self.fr_toggle.pack_propagate(False)
+        self.lbl_toggle = tk.Label(self.fr_toggle, text="▲", bg=C_TOGGLE_BG, fg="#404040",
+                                   font=("맑은 고딕", 8), cursor="hand2")
+        self.lbl_toggle.pack(expand=True)
+        for w in (self.fr_toggle, self.lbl_toggle):
+            w.bind("<Button-1>", lambda e: self._toggle_header())
+            w.bind("<Enter>", lambda e: self._toggle_hover(True))
+            w.bind("<Leave>", lambda e: self._toggle_hover(False))
+        # 처음에는 접기 줄을 숨겨 둠 (첫 [불러오기] 후 나타남)
+
         area = tk.Frame(self, bg="#F0F2F5")
         area.pack(fill="both", expand=True, padx=12, pady=(6, 0))
+        self._area = area
         area.rowconfigure(0, weight=1)
         area.columnconfigure(1, weight=1)
 
@@ -198,7 +219,33 @@ class PlantMHDialog(tk.Toplevel):
     # ════════════════════════════════════════════════════════════════
     # 조회
     # ════════════════════════════════════════════════════════════════
-    def _load(self):
+    # ── 위쪽 접기/펼치기 ─────────────────────────────────────────────
+    def _toggle_hover(self, on: bool):
+        bg = C_TOGGLE_HOVER if on else C_TOGGLE_BG
+        self.fr_toggle.config(bg=bg)
+        self.lbl_toggle.config(bg=bg)
+
+    def _set_header(self, collapsed: bool):
+        """collapsed=True: 제목 줄·조회 기간 숨김 (▼ 표시) / False: 다시 보임 (▲ 표시)"""
+        self._collapsed = collapsed
+        if not self.fr_toggle.winfo_ismapped():
+            self.fr_toggle.pack(fill="x", before=self._area)
+        if collapsed:
+            self._bar.pack_forget()
+            self._fr_d.pack_forget()
+            self.lbl_toggle.config(text="▼")
+            self.fr_toggle.pack_configure(pady=(0, 0))
+        else:
+            self._bar.pack(fill="x", before=self.fr_toggle)
+            self._fr_d.pack(fill="x", padx=12, pady=(8, 0), before=self.fr_toggle)
+            self.lbl_toggle.config(text="▲")
+            self.fr_toggle.pack_configure(pady=(4, 0))
+
+    def _toggle_header(self):
+        self._set_header(not self._collapsed)
+
+    def _load(self, collapse: bool = False):
+        """collapse=True: [불러오기] 버튼으로 조회 — 성공하면 위쪽을 접는다 (창을 처음 열 때는 접지 않음)"""
         try:
             start = datetime.strptime(self.v_start.get().strip(), "%Y-%m-%d")
             end   = datetime.strptime(self.v_end.get().strip(),   "%Y-%m-%d")
@@ -213,6 +260,7 @@ class PlantMHDialog(tk.Toplevel):
         show_end = datetime.combine(pm.week_sunday(end.date()), datetime.min.time())
         dates = pm.date_list(start.date(), show_end.date())
 
+        self._collapse_pending = collapse
         self.btn_load.config(state="disabled")
         self.btn_excel.config(state="disabled")
         self.progress.start()
@@ -312,6 +360,9 @@ class PlantMHDialog(tk.Toplevel):
         self._items, self._dates, self._starts = items, dates, starts or {}
         if events is not None:
             self._events = events
+        if self._collapse_pending:             # [불러오기] 조회 성공 → 위쪽 접기
+            self._collapse_pending = False
+            self._set_header(True)
         try:
             self._render()
         except Exception as e:
@@ -344,6 +395,7 @@ class PlantMHDialog(tk.Toplevel):
     def _on_err(self, msg):
         if not self.winfo_exists():
             return
+        self._collapse_pending = False         # 조회 실패 시 위쪽은 접지 않음
         self.progress.stop()
         self.btn_load.config(state="normal")
         self.lbl_stat.config(text=f"오류: {msg.splitlines()[0][:60]}")
