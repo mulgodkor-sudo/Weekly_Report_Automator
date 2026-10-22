@@ -11,7 +11,7 @@
 |------|------|
 | 프로그램명 | Weekly Report Automator |
 | 버전 문자열 | `src/config.py`의 `APP_VERSION` 상수 기준 (`get_version_str()`) |
-| 현재 버전 | `"1.23"` (`src/config.py` `APP_VERSION`) |
+| 현재 버전 | `"1.25"` (`src/config.py` `APP_VERSION`) |
 | 주 기능 | Microsoft Outlook 캘린더에서 [실적]/[계획] 태그 일정을 읽어 Weekly Report Excel 파일 자동 생성 |
 | 진입점 | `main.py` (PyInstaller 빌드 시 exe에 고정) |
 | UI 프레임워크 | Python 3.13 + tkinter |
@@ -506,6 +506,9 @@ error_message: '목록에서 선택하세요'
 - 창 제목: `"Plant M/H 입력 확인"`, 크기 `1280x520`, 최소 `760x340`
 - 타이틀 바 텍스트: `"  📊  Plant M/H 입력 확인  ([실적] 기준)"`
 - 메인 화면의 `"📊  Plant M/H 입력 확인"` 버튼은 **항상 활성**, 창이 열리면서 아웃룩에서 바로 조회
+
+- 제목 줄 오른쪽 `📌 항상 위에 표시` 체크박스 (기본 켜짐, 사용자별 기억 `mh_topmost`):
+  켜면 M/H 입력 웹페이지를 클릭해도 창이 뒤로 가지 않음 (v1.25)
 
 ### 12-1. 조회 기간
 
