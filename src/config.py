@@ -35,7 +35,7 @@ CONFIG_FILE = _config_path()
 
 # 프로그램 버전 — 패치로 교체되는 이 파일이 기준.
 # (문서 폴더 config.json에 예전 version 값이 남아 있어도 화면에는 이 값을 표시)
-APP_VERSION = "1.23"
+APP_VERSION = "1.24"
 
 _DEFAULT_CONFIG: dict = {
     "func_code_excel_path": "",

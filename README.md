@@ -1,4 +1,4 @@
-# 📊 Weekly Report Automator  `Ver.1.23`
+# 📊 Weekly Report Automator  `Ver.1.24`
 
 > DL이앤씨 플랜트본부 기계설계팀 — 아웃룩 캘린더 기반 주간보고서 자동 생성 도구
 

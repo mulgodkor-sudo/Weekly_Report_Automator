@@ -61,8 +61,11 @@ class PlantMHDialog(tk.Toplevel):
         saved = load_config().get("mh_flex_start", "auto")
         label = next((l for l, hm in FLEX_CHOICES if hm_label(hm) == saved), FLEX_AUTO)
         self.v_flex  = tk.StringVar(value=label)
+        # 항상 위에 표시 (M/H 입력 웹페이지를 보며 입력할 때 창이 뒤로 숨지 않게) — 기본 켜짐, 기억
+        self.v_topmost = tk.BooleanVar(value=bool(load_config().get("mh_topmost", True)))
 
         self._build()
+        self._apply_topmost()
         self._load()
 
     # ════════════════════════════════════════════════════════════════
@@ -76,6 +79,12 @@ class PlantMHDialog(tk.Toplevel):
         tk.Label(bar, text="  📊  Plant M/H 입력 확인  ([실적] 기준)",
                  font=("맑은 고딕", 11, "bold"),
                  fg="white", bg="#1F4E79").pack(side="left", padx=12, pady=6)
+        tk.Checkbutton(bar, text="📌 항상 위에 표시", variable=self.v_topmost,
+                       command=self._on_topmost_change,
+                       font=("맑은 고딕", 10, "bold"), fg="white", bg="#1F4E79",
+                       activeforeground="white", activebackground="#2E75B6",
+                       selectcolor="#1F4E79", cursor="hand2", bd=0, highlightthickness=0
+                       ).pack(side="right", padx=14)
 
         # ── 조회 기간 ──────────────────────────────────────────────
         fr_d = ttk.LabelFrame(self, text="  📅  조회 기간", padding=(10, 5))
@@ -256,6 +265,17 @@ class PlantMHDialog(tk.Toplevel):
             self._on_err(f"재계산 오류: {e}\n\n{traceback.format_exc()}")
             return
         self._on_ok(items, self._dates, starts, self._events)
+
+    # ── 항상 위에 표시 ────────────────────────────────────────────────
+    def _apply_topmost(self):
+        self.attributes("-topmost", bool(self.v_topmost.get()))
+
+    def _on_topmost_change(self):
+        self._apply_topmost()
+        from config import load_config, save_config
+        cfg = load_config()
+        cfg["mh_topmost"] = bool(self.v_topmost.get())
+        save_config(cfg)
 
     def _on_flex_change(self, _event=None):
         from config import load_config, save_config
