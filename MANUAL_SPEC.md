@@ -570,6 +570,8 @@ error_message: '목록에서 선택하세요'
   - 설치 위치: `C:\Program Files\Autotools_Mechanical\Weekly Report Automator\` (perMachine)
   - 마법사: 시작 → 안내문(License.rtf, 빌드 시 버전 주입) → 설치 경로 → 진행 → 완료(실행 체크박스)
   - 시작 메뉴·바탕화면 바로가기, MajorUpgrade(이전 버전 자동 제거, 같은 버전 재설치 허용)
+  - 앱 이름·바로가기 이름에는 버전을 넣지 않음 (`Weekly Report Automator`) — 패치로는 바뀌지 않으므로,
+    현재 버전은 프로그램 화면 제목(Ver.x.x)으로 확인
   - `src\` 폴더에 Users 수정 권한 → 패치를 관리자 권한 없이 적용, 제거 시 패치 추가 파일·`__pycache__`까지 삭제
   - MSI 버전 변환: 소수 둘째 자리까지 → `1.2` = `1.20.0.0`, `1.11` = `1.11.0.0` (1.1 < 1.11 < 1.2 순서 유지)
 - `main.py`가 exe에 고정되며, 이후 패치로 갱신 불가

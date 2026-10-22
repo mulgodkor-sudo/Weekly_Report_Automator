@@ -16,9 +16,11 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <?include Variables.wxi ?>
 
-  <!-- Package Name 에 버전 포함 → 앱 및 기능 목록에 "Weekly Report Automator 1.2" 로 표시.
-       업그레이드 감지는 UpgradeCode 기준이라 이름에 버전이 있어도 정상 업그레이드. -->
-  <Package Name="$(ProductName) $(var.DisplayVersion)" Version="$(var.ProductVersion)"
+  <!-- 앱 이름·바로가기 이름에는 버전을 넣지 않는다.
+       자동 업데이트(패치)는 프로그램 파일만 바꾸고 바로가기/앱 목록 이름은 바꿀 수 없어서,
+       이름에 버전이 있으면 실제 버전과 달라 헷갈림. 현재 버전은 프로그램 화면 제목(Ver.x.x)으로 확인.
+       업그레이드 감지는 UpgradeCode 기준이라 이름과 무관. -->
+  <Package Name="$(ProductName)" Version="$(var.ProductVersion)"
            Manufacturer="$(Manufacturer)" UpgradeCode="$(UpgradeCode)"
            Language="1042" Codepage="949" Scope="perMachine">
 
@@ -123,7 +125,7 @@
     <ComponentGroup Id="AppShortcuts" Directory="AppShortcutDir">
       <Component Id="StartMenuShortcut" Guid="*">
         <Shortcut Id="AppStartMenuShortcut"
-                  Name="$(ProductName) $(var.DisplayVersion)"
+                  Name="$(ProductName)"
                   Target="[INSTALLFOLDER]$(var.ExeName)"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="AppIcon.ico" />
@@ -139,7 +141,7 @@
     <ComponentGroup Id="DesktopShortcut" Directory="DesktopFolder">
       <Component Id="DesktopShortcut" Guid="*">
         <Shortcut Id="AppDesktopShortcut"
-                  Name="$(ProductName) $(var.DisplayVersion)"
+                  Name="$(ProductName)"
                   Target="[INSTALLFOLDER]$(var.ExeName)"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="AppIcon.ico" />
