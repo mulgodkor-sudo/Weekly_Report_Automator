@@ -58,12 +58,14 @@ class MonthlyDialog(tk.Toplevel):
         P = dict(padx=6, pady=4)
         ttk.Label(fr_d, text="시작일 :").grid(row=0, column=0, sticky="e", **P)
         self.v_start = tk.StringVar()
-        ttk.Entry(fr_d, textvariable=self.v_start, width=14,
-                  font=("맑은 고딕",10)).grid(row=0, column=1, sticky="w", **P)
+        self.ent_start = ttk.Entry(fr_d, textvariable=self.v_start, width=14,
+                  font=("맑은 고딕",10))
+        self.ent_start.grid(row=0, column=1, sticky="w", **P)
         ttk.Label(fr_d, text=" ~ 종료일 :").grid(row=0, column=2, **P)
         self.v_end = tk.StringVar()
-        ttk.Entry(fr_d, textvariable=self.v_end, width=14,
-                  font=("맑은 고딕",10)).grid(row=0, column=3, sticky="w", **P)
+        self.ent_end = ttk.Entry(fr_d, textvariable=self.v_end, width=14,
+                  font=("맑은 고딕",10))
+        self.ent_end.grid(row=0, column=3, sticky="w", **P)
 
         self._set_prev_month()
 
@@ -79,7 +81,7 @@ class MonthlyDialog(tk.Toplevel):
         self.progress.grid(row=0, column=5, padx=4)
 
         ttk.Label(fr_d,
-                  text="* 전월 날짜 자동 입력 / YYYY-MM-DD 형식으로 수정 가능 "
+                  text="* 전월 날짜 자동 입력 / 20261001 처럼 숫자만 입력해도 됨 "
                        "/ Non-KPI 순서는 FC 엑셀 파일 기준",
                   foreground="gray", font=("맑은 고딕",8)
                   ).grid(row=1, column=0, columnspan=6, sticky="w", padx=6)
@@ -163,11 +165,14 @@ class MonthlyDialog(tk.Toplevel):
 
     # ── 불러오기 ──────────────────────────────────────────────────
     def _load(self):
-        try:
-            start = datetime.strptime(self.v_start.get().strip(), "%Y-%m-%d")
-            end   = datetime.strptime(self.v_end.get().strip(),   "%Y-%m-%d")
-        except ValueError:
-            messagebox.showerror("날짜 오류", "YYYY-MM-DD 형식으로 입력하세요.", parent=self)
+        import dateinput
+        got = dateinput.read_fields([(self.v_start, self.ent_start, "시작일"),
+                                     (self.v_end,   self.ent_end,   "종료일")], parent=self)
+        if got is None:
+            return
+        start, end = got
+        if start > end:
+            messagebox.showerror("날짜 오류", "시작일이 종료일보다 늦습니다.", parent=self)
             return
 
         self._month_str = (
