@@ -568,7 +568,9 @@ error_message: '목록에서 선택하세요'
 - MSI: WiX Toolset v5.0.2 (무료, MS-RL), `dotnet tool`로 설치·버전 고정 — MHS_Searcher 설치 구성과 동일
   - 설치 정의: `installer/wix/Product.wxs` + `Variables.wxi` + `ui.ko-KR.wxl`(한국어 마법사) + 브랜딩 BMP
   - 설치 위치: `C:\Program Files\Autotools_Mechanical\Weekly Report Automator\` (perMachine)
-  - 마법사: 시작 → 안내문(License.rtf, 빌드 시 버전 주입) → 설치 경로 → 진행 → 완료(실행 체크박스)
+  - 마법사: 시작 → 안내문(License.rtf, 빌드 시 버전 주입) → 설치 경로 → 진행 → 완료(`Weekly Report Automator_V1.23 실행` 체크박스)
+  - 완료 화면 체크박스 문구는 MSI 속성 치환(`[ProductName]`)이 안 되므로 빌드 시점 값으로 채움.
+    `build_msi.bat` 이 빌드 전에 `installer/msi_tool.py lint` 로 검사 (`[…]` 참조가 있으면 빌드 중단)
   - 시작 메뉴·바탕화면 바로가기, MajorUpgrade(이전 버전 자동 제거, 같은 버전 재설치 허용)
   - 앱 이름·바로가기 이름에는 버전을 넣지 않음 (`Weekly Report Automator`) — 패치로는 바뀌지 않으므로,
     현재 버전은 프로그램 화면 제목(Ver.x.x)으로 확인

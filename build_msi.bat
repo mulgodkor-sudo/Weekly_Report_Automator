@@ -167,6 +167,8 @@ if not exist "installer\wix\WixUIDialogBmp.bmp"  goto err_input
 if not exist "installer\wix\WixUIBannerBmp.bmp"  goto err_input
 if not exist "installer\msi_installed.txt"       goto err_input
 if not exist "src\assets\Schedule_Ico.ico"       goto err_input
+"%PY%" installer\msi_tool.py lint
+if errorlevel 1 goto err_lint
 if not exist "build\msi" mkdir "build\msi"
 echo [6/7] Writing install notice (License.rtf) with version %VER% ...
 "%PY%" installer\msi_tool.py license "%ROOT%\build\msi\License.rtf"
@@ -285,6 +287,12 @@ goto fail
 echo.
 echo [ERROR] An installer input file is missing (installer\wix\*, installer\msi_installed.txt,
 echo         src\assets\Schedule_Ico.ico). Get the latest files from GitHub (git pull).
+goto fail
+
+:err_lint
+echo.
+echo [ERROR] installer\wix\Product.wxs check failed (see the ERROR line above).
+echo         Install wizard text must not use [ProductName] style references.
 goto fail
 
 :err_license

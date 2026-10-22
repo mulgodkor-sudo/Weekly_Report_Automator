@@ -49,8 +49,11 @@
     <WixVariable Id="WixUIDialogBmp" Value="$(var.ProjectRoot)\installer\wix\WixUIDialogBmp.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="$(var.ProjectRoot)\installer\wix\WixUIBannerBmp.bmp" />
 
-    <!-- 완료 화면: '[ProductName] 실행' 체크박스 (기본 체크) — Util 확장 WixShellExec -->
-    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="[ProductName] 실행" />
+    <!-- 완료 화면: 'Weekly Report Automator_V1.23 실행' 체크박스 (기본 체크) — Util 확장 WixShellExec
+         ※ 체크박스 문구에는 [ProductName] 같은 MSI 속성 치환이 적용되지 않아 글자 그대로 보인다.
+           반드시 빌드 시점 값($(ProductName), $(var.DisplayVersion))으로 채울 것.
+           build_msi.bat 이 빌드 전에 검사한다 (installer/msi_tool.py lint). -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="$(ProductName)_V$(var.DisplayVersion) 실행" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
     <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]$(var.ExeName)" />
     <CustomAction Id="LaunchApplication"

@@ -6,6 +6,8 @@ msi_tool.py — build_msi.bat 보조 스크립트 (WiX v5, installer/wix/Product
   python installer/msi_tool.py arch           → 파이썬 비트수에 맞는 WiX arch (x64 / x86)
   python installer/msi_tool.py license <out>  → 버전이 들어간 설치 안내문 RTF 생성
   python installer/msi_tool.py pathcheck      → 빌드 폴더 경로 경고 (바탕화면/OneDrive/한글·공백)
+  python installer/msi_tool.py lint           → Product.wxs 검사 (설치 화면에 [ProductName] 등이 글자 그대로
+                                                 보이는 문제 방지). 문제 있으면 종료코드 1
 
 결과는 모두 표준출력으로 내보낸다 (bat 에서 파일로 받아 set /p 로 읽음).
 """
@@ -103,6 +105,26 @@ def path_warnings() -> list[str]:
     return warns
 
 
+# 설치 마법사 문구용 속성: MSI 가 [속성] 치환을 하지 않아 글자 그대로 보이는 것들
+_UNFORMATTED_PROPS = ("WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT",)
+
+
+def lint_wxs() -> list[str]:
+    """
+    Product.wxs 검사. 문제 목록(ASCII) 반환.
+    - 완료 화면 체크박스 문구 등에 [ProductName] 같은 속성 참조가 있으면 오류
+      (예전 MSI 에서 '[ProductName] 실행' 으로 그대로 보였던 문제)
+    """
+    text = (ROOT / "installer" / "wix" / "Product.wxs").read_text(encoding="utf-8")
+    problems = []
+    for pid in _UNFORMATTED_PROPS:
+        m = re.search(r'<Property\s+Id="%s"\s+Value="([^"]*)"' % pid, text)
+        if m and re.search(r"\[[A-Za-z_#!$][^\]]*\]", m.group(1)):
+            problems.append(f"{pid} contains a [property] reference - the install wizard shows it "
+                            f"literally. Use $(ProductName) / $(var.DisplayVersion) instead.")
+    return problems
+
+
 def main() -> None:
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "version":
@@ -113,6 +135,13 @@ def main() -> None:
         print("x64" if struct.calcsize("P") == 8 else "x86")
     elif cmd == "license" and len(sys.argv) == 3:
         write_license(Path(sys.argv[2]))
+    elif cmd == "lint":
+        problems = lint_wxs()
+        for p in problems:
+            print("ERROR: " + p)
+        if problems:
+            sys.exit(1)
+        print("Product.wxs OK")
     elif cmd == "pathcheck":
         # 콘솔 코드페이지와 무관하게 출력되도록 ASCII 메시지만 사용
         for w in path_warnings():
