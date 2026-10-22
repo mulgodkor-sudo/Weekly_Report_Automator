@@ -70,12 +70,18 @@ class WeeklyReportApp:
     # ── 이번주 시작일 자동완성 ────────────────────────────────────────
     def _on_ts_changed(self, *_):
         """이번주 시작일(v_ts) 변경 시 나머지 날짜 자동완성.
-        YYYY-MM-DD 10자리 완성 시만 동작 (입력 중 무시)."""
+        올바른 날짜로 인식될 때만 동작 (20261019 / 2026-10-19 등, 입력 중인 값은 무시)."""
+        import dateinput
         s = self.v_ts.get().strip()
-        if len(s) != 10:
+        if len(s) < 4:
             return
         try:
-            ts   = datetime.strptime(s, "%Y-%m-%d")
+            ts   = dateinput.parse(s)
+            # 같은 날짜로 다시 인식된 경우(예: 20261019 → 2026-10-19 로 칸 정리) 다시 채우지 않음
+            # → 사용자가 직접 고친 종료일·다음주 날짜를 덮어쓰지 않도록
+            if getattr(self, "_ts_filled", None) == ts:
+                return
+            self._ts_filled = ts
             fri  = ts + timedelta(days=4)
             nmon = ts + timedelta(days=7)
             nfri = ts + timedelta(days=11)
@@ -243,10 +249,10 @@ class WeeklyReportApp:
         P = dict(padx=5, pady=6)
         ttk.Label(fr, text="날  짜 :", font=("맑은 고딕", 9)
                   ).grid(row=0, column=0, sticky="w", **P)
-        ttk.Entry(fr, textvariable=self.v_single, width=14,
-                  font=("맑은 고딕", 10)
-                  ).grid(row=1, column=0, sticky="ew", padx=5, pady=2)
-        ttk.Label(fr, text="(YYYY-MM-DD)", foreground="gray",
+        self.ent_single = ttk.Entry(fr, textvariable=self.v_single, width=14,
+                                    font=("맑은 고딕", 10))
+        self.ent_single.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
+        ttk.Label(fr, text="(예: 20261001)", foreground="gray",
                   font=("맑은 고딕", 8)
                   ).grid(row=2, column=0, sticky="w", padx=5, pady=0)
         ttk.Button(fr, text="🔍  일별 불러오기",
@@ -277,22 +283,23 @@ class WeeklyReportApp:
                             fg="#1F4E79",          # 네이비 글씨
                             relief="solid", bd=1,
                             insertbackground="#1F4E79")
+        self.ent_ts = ts_entry
         ts_entry.grid(row=0, column=1, sticky="ew", padx=6, pady=8, ipady=4)
 
         ttk.Label(fr, text=" ~ ", font=("맑은 고딕", 10)
                   ).grid(row=0, column=2, **P)
-        ttk.Entry(fr, textvariable=self.v_te, width=13,
-                  font=("맑은 고딕", 10)).grid(row=0, column=3, sticky="ew", **P)
+        self.ent_te = ttk.Entry(fr, textvariable=self.v_te, width=13, font=("맑은 고딕", 10))
+        self.ent_te.grid(row=0, column=3, sticky="ew", **P)
 
         # ── 다음주 ──────────────────────────────────────────────────
         ttk.Checkbutton(fr, text="다음주  [계획] :",
                         variable=self.v_use_next).grid(row=1, column=0, sticky="e", **Ps)
-        ttk.Entry(fr, textvariable=self.v_ns, width=13,
-                  font=("맑은 고딕", 10)).grid(row=1, column=1, sticky="ew", **Ps)
+        self.ent_ns = ttk.Entry(fr, textvariable=self.v_ns, width=13, font=("맑은 고딕", 10))
+        self.ent_ns.grid(row=1, column=1, sticky="ew", **Ps)
         ttk.Label(fr, text=" ~ ", font=("맑은 고딕", 10)
                   ).grid(row=1, column=2, **Ps)
-        ttk.Entry(fr, textvariable=self.v_ne, width=13,
-                  font=("맑은 고딕", 10)).grid(row=1, column=3, sticky="ew", **Ps)
+        self.ent_ne = ttk.Entry(fr, textvariable=self.v_ne, width=13, font=("맑은 고딕", 10))
+        self.ent_ne.grid(row=1, column=3, sticky="ew", **Ps)
 
         # ── 버튼 행 ─────────────────────────────────────────────────
         style = ttk.Style()
@@ -324,7 +331,7 @@ class WeeklyReportApp:
                   ).pack(side="left")
 
         ttk.Label(fr,
-                  text="YYYY-MM-DD  |  이번주 시작일 입력 시 나머지 날짜 자동완성",
+                  text="20261019 처럼 숫자만 입력해도 됨  |  이번주 시작일 입력 시 나머지 날짜 자동완성",
                   foreground="gray", font=("맑은 고딕", 8)
                   ).grid(row=3, column=0, columnspan=4, sticky="w", padx=4, pady=(0, 2))
 
@@ -473,8 +480,10 @@ class WeeklyReportApp:
         MonthlyDialog(self.root)
 
     def _open_plant_mh(self):
-        # 기본 조회 기간 = Weekly Report 조회 기간(이번주). 창 안에서 조정 가능.
-        start, end = self.v_ts.get().strip(), self.v_te.get().strip()
+        # 기본 조회 기간 = 전월 25일 ~ 오늘 (M/H 입력 마감 주기). 창 안에서 조정 가능.
+        today = datetime.today()
+        y, m = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+        start, end = f"{y}-{m:02d}-25", today.strftime("%Y-%m-%d")
         PlantMHDialog(self.root, start, end)   # 창이 열리면서 아웃룩에서 바로 조회
 
     def _browse_save(self):
@@ -519,22 +528,13 @@ class WeeklyReportApp:
         save_config(self._cfg)
         self._set_status(self._fc_status_text().replace("로드 완료", "재로드 완료"))
 
-    def _parse_date(self, s: str) -> datetime:
-        try:
-            return datetime.strptime(s.strip(), "%Y-%m-%d")
-        except ValueError:
-            raise ValueError(f"날짜 형식 오류: '{s}'\nYYYY-MM-DD 형식으로 입력하세요.")
-
     def _load_single(self):
-        s = self.v_single.get().strip()
-        if not s:
-            messagebox.showwarning("경고", "날짜를 입력하세요.")
+        # 숫자만 입력해도 인식, 잘못된 날짜는 다시 입력, 지난달 이전은 확인 (dateinput.py)
+        import dateinput
+        got = dateinput.read_fields([(self.v_single, self.ent_single, "날짜")], parent=self.root)
+        if got is None:
             return
-        try:
-            sd = self._parse_date(s)
-        except ValueError as e:
-            messagebox.showerror("날짜 오류", str(e))
-            return
+        sd = got[0]
         self._do_load(sd, sd, None, None, "일별", mode="single", single_date=sd)
 
     def _load_week(self):
@@ -543,14 +543,18 @@ class WeeklyReportApp:
         if not use_this and not use_next:
             messagebox.showwarning("경고", "이번주 또는 다음주 중 하나 이상 체크하세요.")
             return
-        try:
-            ts = self._parse_date(self.v_ts.get()) if use_this else None
-            te = self._parse_date(self.v_te.get()) if use_this else None
-            ns = self._parse_date(self.v_ns.get()) if use_next else None
-            ne = self._parse_date(self.v_ne.get()) if use_next else None
-        except ValueError as e:
-            messagebox.showerror("날짜 오류", str(e))
+        import dateinput
+        fields = []
+        if use_this:
+            fields += [(self.v_ts, self.ent_ts, "이번주 시작일"), (self.v_te, self.ent_te, "이번주 종료일")]
+        if use_next:
+            fields += [(self.v_ns, self.ent_ns, "다음주 시작일"), (self.v_ne, self.ent_ne, "다음주 종료일")]
+        got = dateinput.read_fields(fields, parent=self.root)
+        if got is None:
             return
+        it = iter(got)
+        ts, te = (next(it), next(it)) if use_this else (None, None)
+        ns, ne = (next(it), next(it)) if use_next else (None, None)
         self._do_load(ts, te, ns, ne, "주별", mode="week")
 
     def _do_load(self, ts, te, ns, ne, label="", mode="week", single_date=None):
