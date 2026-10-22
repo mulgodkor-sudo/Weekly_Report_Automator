@@ -105,7 +105,8 @@ dist/Weekly_Report_Automator_V1.2.msi       ← 설치파일
 
 - **한국어 설치 마법사**: 시작 → 안내문 → 설치 경로 선택 → 진행 → 완료(+ 프로그램 실행 체크박스), DL E&C 브랜딩 이미지
 - 기본 설치 위치: `C:\Program Files\Autotools_Mechanical\Weekly Report Automator\` (관리자 권한으로 설치)
-- 시작 메뉴 / 바탕화면 바로가기 `Weekly Report Automator 1.2`, "앱 및 기능"에 버전·문의처 표시
+- 시작 메뉴 / 바탕화면 바로가기와 "앱 및 기능"의 이름은 버전 없이 `Weekly Report Automator` (문의처 표시)
+  - 자동 업데이트는 프로그램 파일만 바꾸므로 이름에 버전을 넣지 않음 — **현재 버전은 프로그램 화면 제목(Ver.x.x)으로 확인**
 - 새 버전 MSI를 설치하면 이전 버전은 자동 제거 후 설치. 같은 버전 MSI 재실행 시 [업데이트]/[프로그램 삭제] 선택
 - 설치 폴더의 `src\`는 일반 사용자도 수정 가능 → **패치(`apply_patch_vX.X.bat`)를 설치 폴더에 복사해 관리자 권한 없이 적용**.
   바로가기가 깨지지 않도록 MSI 설치본에서는 exe·폴더 이름을 바꾸지 않는다.

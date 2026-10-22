@@ -4,3 +4,4 @@ tools/
 *.spec
 installer/__pycache__/
 patches/__pycache__/
+patches/test/
