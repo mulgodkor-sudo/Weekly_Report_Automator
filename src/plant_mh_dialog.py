@@ -135,7 +135,8 @@ class PlantMHDialog(tk.Toplevel):
 
         # ── 표 영역: 왼쪽 고정 + 오른쪽 가로 스크롤 ─────────────────
         # ── 위쪽(제목 줄 + 조회 기간) 접기/펼치기 줄 ─────────────────
-        #   [불러오기] 로 조회가 끝나면 위쪽을 접어 날짜·표만 보이게 함 (처음 열 때는 펼친 상태)
+        #   처음부터 보임 (펼친 상태, ▲ 를 누르면 바로 접기 가능)
+        #   [불러오기] 로 조회가 끝나면 자동으로 접어 날짜·표만 보이게 함
         #   접힌 뒤에는 가운데 ▼ 를 눌러 다시 펼치고, 펼친 상태에서는 ▲ 로 다시 접음
         self._collapsed = False
         self._collapse_pending = False
@@ -148,7 +149,7 @@ class PlantMHDialog(tk.Toplevel):
             w.bind("<Button-1>", lambda e: self._toggle_header())
             w.bind("<Enter>", lambda e: self._toggle_hover(True))
             w.bind("<Leave>", lambda e: self._toggle_hover(False))
-        # 처음에는 접기 줄을 숨겨 둠 (첫 [불러오기] 후 나타남)
+        self.fr_toggle.pack(fill="x", pady=(4, 0))     # 처음부터 표시 (▲ = 접기)
 
         area = tk.Frame(self, bg="#F0F2F5")
         area.pack(fill="both", expand=True, padx=12, pady=(6, 0))
@@ -230,7 +231,7 @@ class PlantMHDialog(tk.Toplevel):
     def _set_header(self, collapsed: bool):
         """collapsed=True: 제목 줄·조회 기간 숨김 (▼ 표시) / False: 다시 보임 (▲ 표시)"""
         self._collapsed = collapsed
-        if not self.fr_toggle.winfo_ismapped():
+        if not self.fr_toggle.winfo_manager():
             self.fr_toggle.pack(fill="x", before=self._area)
         if collapsed:
             self._bar.pack_forget()
